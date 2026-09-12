@@ -1,0 +1,18 @@
+[package]
+name = "agent-tool-parser-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "PyO3 Python bindings for agent-tool-parser"
+
+[lib]
+name = "_accelerated"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+agent-tool-parser-core = { path = "../agent-tool-parser-core" }
+pyo3 = { version = "0.22", features = ["extension-module"] }
+serde_json.workspace = true
+pythonize = "0.22"

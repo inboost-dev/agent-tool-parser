@@ -1,0 +1,15 @@
+[package]
+name = "agent-tool-parser-c"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "C-ABI and shared/static library for agent-tool-parser (for Go, C, C++, Zig)"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+agent-tool-parser-core = { path = "../agent-tool-parser-core" }
+serde_json.workspace = true

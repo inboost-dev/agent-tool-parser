@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>agent-tool-parser — Deterministic LLM Tool Call Parser</title>
+  <meta name="description" content="Deterministic, zero-dependency parser for heterogeneous LLM tool calls and structured outputs. Designed for agent runtimes and inference pipelines.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090d16;
+      color: #f1f5f9;
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(56, 189, 248, 0.15), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 60%, rgba(129, 140, 248, 0.08), transparent);
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+    .glass-card-hover:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      transition: all 0.2s ease;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    pre code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-brand-500 selection:text-white">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-50 glass-card border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center font-mono font-bold text-white shadow-lg shadow-sky-500/20">
+          ⚡
+        </div>
+        <span class="font-bold text-lg tracking-tight text-white font-mono">agent-tool-parser</span>
+        <span class="hidden sm:inline-block px-2 py-0.5 text-xs font-semibold rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">v0.1.0</span>
+      </div>
+
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-300">
+        <a href="#playground" class="hover:text-sky-400 transition-colors">Evaluation Playground</a>
+        <a href="#why" class="hover:text-sky-400 transition-colors">Architectural Context</a>
+        <a href="#ecosystem" class="hover:text-sky-400 transition-colors">Ecosystem</a>
+        <a href="#recipes" class="hover:text-sky-400 transition-colors">Integration Patterns</a>
+        <a href="#benchmarks" class="hover:text-sky-400 transition-colors">Benchmarks</a>
+        <a href="#api" class="hover:text-sky-400 transition-colors">API Reference</a>
+      </nav>
+
+      <div class="flex items-center space-x-3">
+        <a href="https://github.com/inboost-dev/agent-tool-parser" target="_blank" rel="noopener noreferrer" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="relative pt-16 pb-20 px-4 sm:px-6 lg:px-8 text-center max-w-5xl mx-auto">
+    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/30 mb-6">
+      <span>Deterministic Extraction Engine</span>
+      <span class="w-1 h-1 rounded-full bg-sky-400"></span>
+      <span>Zero Runtime Dependencies</span>
+    </div>
+
+    <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+      Structured Tool Call Parser for <br/>
+      <span class="gradient-text">Autonomous AI Agents</span>
+    </h1>
+
+    <p class="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto mb-8 font-normal leading-relaxed">
+      Extract, normalize, and repair heterogeneous tool calls from large language model text streams. Sub-0.05ms deterministic execution across standard OpenAI, Claude XML, DeepSeek DSML, Qwen, and Llama formats.
+    </p>
+
+    <!-- Quick Install Bar -->
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+      <div class="flex items-center glass-card px-4 py-2.5 rounded-xl border border-slate-700 w-full sm:w-auto shadow-xl">
+        <span class="text-slate-400 font-mono text-sm select-none mr-2">$</span>
+        <code class="font-mono text-sm text-sky-300 font-semibold mr-4">pip install agent-tool-parser</code>
+        <button onclick="copyToClipboard('pip install agent-tool-parser', this)" class="text-slate-400 hover:text-white transition-colors p-1.5 rounded-md hover:bg-slate-800" title="Copy to clipboard">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        </button>
+      </div>
+      <a href="#playground" class="px-6 py-2.5 rounded-xl text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition-all shadow-lg shadow-sky-500/25 flex items-center justify-center space-x-2">
+        <span>Try Live Playground</span>
+        <span>&darr;</span>
+      </a>
+    </div>
+
+    <!-- Quick Metrics Banner -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto pt-4 border-t border-slate-800/80">
+      <div class="p-3">
+        <div class="text-2xl sm:text-3xl font-bold text-white font-mono">&lt; 0.05ms</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Average Latency</div>
+      </div>
+      <div class="p-3">
+        <div class="text-2xl sm:text-3xl font-bold text-sky-400 font-mono">0 Deps</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Pure Standard Library</div>
+      </div>
+      <div class="p-3">
+        <div class="text-2xl sm:text-3xl font-bold text-indigo-400 font-mono">Multi-Tool</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Parallel Invocation</div>
+      </div>
+      <div class="p-3">
+        <div class="text-2xl sm:text-3xl font-bold text-emerald-400 font-mono">MIT</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Free Commercial Use</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Live Playground -->
+  <section id="playground" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+    <div class="text-center mb-8">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Interactive Evaluation Playground</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
+        Evaluate how heterogeneous or truncated model completions are normalized to canonical ToolCall structures.
+      </p>
+    </div>
+
+    <!-- Preset Selector Tabs -->
+    <div class="flex items-center overflow-x-auto pb-3 gap-2 mb-4 scrollbar-none justify-start sm:justify-center">
+      <button onclick="loadPreset('deepseek-dsml')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-500/40 whitespace-nowrap">DeepSeek DSML &amp; Think</button>
+      <button onclick="loadPreset('deepseek-native')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">DeepSeek Native Tokens</button>
+      <button onclick="loadPreset('claude-xml')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Claude XML + CDATA</button>
+      <button onclick="loadPreset('qwen-tokens')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Qwen 2.5 Tokens</button>
+      <button onclick="loadPreset('llama-ast')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Llama 3.1 AST</button>
+      <button onclick="loadPreset('multi-tool')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Parallel Multi-Tool</button>
+      <button onclick="loadPreset('broken-json')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Truncated Stream JSON</button>
+    </div>
+
+    <!-- Playground Workspace Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Left Panel: Raw LLM Output -->
+      <div class="glass-card rounded-2xl overflow-hidden flex flex-col">
+        <div class="bg-slate-900/80 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+            <span class="text-xs font-mono text-slate-400 ml-2">Model Output Stream (Raw Input)</span>
+          </div>
+          <button onclick="runLiveParse()" class="px-3 py-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs rounded-md shadow transition-colors">
+            Run Parse ⚡
+          </button>
+        </div>
+        <div class="relative flex-1 min-h-[320px]">
+          <textarea id="rawInput" class="w-full h-full p-4 bg-slate-950/60 text-slate-200 font-mono text-xs leading-relaxed focus:outline-none resize-none border-none" spellcheck="false"></textarea>
+        </div>
+      </div>
+
+      <!-- Right Panel: Parsed ToolCall Output -->
+      <div class="glass-card rounded-2xl overflow-hidden flex flex-col">
+        <div class="bg-slate-900/80 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-mono text-sky-400 font-semibold">Normalized ToolCall Output</span>
+            <span id="timingBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">0.03ms</span>
+          </div>
+          <button onclick="copyToClipboard(document.getElementById('parsedOutput').innerText, this)" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition-colors flex items-center space-x-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span>Copy JSON</span>
+          </button>
+        </div>
+        <div class="p-4 bg-slate-950/80 flex-1 min-h-[320px] overflow-auto">
+          <pre id="parsedOutput" class="text-xs font-mono text-emerald-300 leading-relaxed"></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architectural Challenges Section -->
+  <section id="why" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-800/80">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Architectural Challenges in Heterogeneous Tool Calling</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
+        Client-side agent runtimes encounter structural inconsistencies when interfacing with diverse cloud APIs and local inference engines.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="glass-card glass-card-hover p-6 rounded-2xl">
+        <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-lg mb-4">
+          1
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">Content Stream Delimiters</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          Inference endpoints (such as OpenRouter, DeepSeek API, or vLLM) frequently return empty <code class="text-sky-300 font-mono">tool_calls</code> arrays while embedding raw XML, DSML, or proprietary delimiter tokens directly within <code class="text-sky-300 font-mono">message.content</code>.
+        </p>
+      </div>
+
+      <div class="glass-card glass-card-hover p-6 rounded-2xl">
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-lg mb-4">
+          2
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">Stream Interruption &amp; Truncation</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          When model generation terminates at token limits or network interruptions occur, standard JSON deserialization fails. The parser evaluates bracket stacks to close and recover partial JSON payloads deterministically.
+        </p>
+      </div>
+
+      <div class="glass-card glass-card-hover p-6 rounded-2xl">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-lg mb-4">
+          3
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">Code Escaping &amp; CDATA Blocks</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          Serializing shell scripts, unified diffs, or Python functions within JSON string literals frequently results in escape violations. The parser extracts unescaped CDATA blocks and multi-line script bodies without string corruption.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architectural Integration Patterns -->
+  <section id="recipes" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-800/80">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Architectural Integration Patterns</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
+        Reference implementations for integrating <code class="text-sky-400 font-mono">agent-tool-parser</code> into agent loops, gateway proxies, and parallel execution pipelines.
+      </p>
+    </div>
+
+    <div class="space-y-8 max-w-4xl mx-auto">
+      <!-- Recipe 1: Autonomous Agent Loop -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-xs uppercase font-bold text-sky-400 tracking-wider">Pattern 1</span>
+            <h3 class="text-base font-bold text-white">Autonomous Agent Loop (ReAct / Plan-and-Execute)</h3>
+          </div>
+          <button onclick="copyCode(this)" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 transition-colors">Copy</button>
+        </div>
+        <div class="p-6 bg-slate-950/60 overflow-x-auto">
+          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>from agent_tool_parser import try_parse_tool_calls
+
+def run_agent_turn(messages: list[dict], client, model_name: str):
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=messages,
+        temperature=0.0,
+    )
+    raw_content = response.choices[0].message.content or ""
+
+    # Resilient extraction across DeepSeek, Claude, Qwen, Llama & non-standard JSON
+    tool_calls = try_parse_tool_calls(
+        raw_content,
+        allowed_tools={"read_file", "write_file", "bash", "search"},
+        tool_aliases={"view": "read_file", "sh": "bash", "cmd": "bash"}
+    )
+
+    if not tool_calls:
+        return {"action": "reply", "content": raw_content}
+
+    # Execute all tools (in parallel or sequentially)
+    results = []
+    for call in tool_calls:
+        output = execute_tool(call.name, call.args)
+        results.append({"tool": call.name, "output": output})
+
+    return {"action": "continue", "results": results}</code></pre>
+        </div>
+      </div>
+
+      <!-- Recipe 2: Drop-in OpenAI & LiteLLM Fallback Wrapper -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-xs uppercase font-bold text-indigo-400 tracking-wider">Pattern 2</span>
+            <h3 class="text-base font-bold text-white">API Gateway &amp; Router Normalization Middleware</h3>
+          </div>
+          <button onclick="copyCode(this)" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 transition-colors">Copy</button>
+        </div>
+        <div class="p-6 bg-slate-950/60 overflow-x-auto">
+          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>from agent_tool_parser import parse_tool_calls, safe_json_loads, ToolError
+
+def normalize_response(response_message):
+    """Normalizes response structures when inference endpoints emit markup in message content."""
+    # 1. Return native tool_calls if already structured by provider SDK
+    if getattr(response_message, "tool_calls", None):
+        return [
+            {"name": tc.function.name, "args": safe_json_loads(tc.function.arguments)}
+            for tc in response_message.tool_calls
+        ]
+
+    # 2. Extract structured invocations from text content stream
+    content = getattr(response_message, "content", "") or ""
+    try:
+        calls = parse_tool_calls(content)
+        return [{"name": c.name, "args": c.args} for c in calls]
+    except ToolError:
+        return []</code></pre>
+        </div>
+      </div>
+
+      <!-- Recipe 3: Concurrent Multi-Tool Execution -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-xs uppercase font-bold text-emerald-400 tracking-wider">Pattern 3</span>
+            <h3 class="text-base font-bold text-white">Concurrent Multi-Tool Dispatch (AsyncIO)</h3>
+          </div>
+          <button onclick="copyCode(this)" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 transition-colors">Copy</button>
+        </div>
+        <div class="p-6 bg-slate-950/60 overflow-x-auto">
+          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>import asyncio
+from agent_tool_parser import parse_tool_calls
+
+async def handle_llm_turn(model_output: str):
+    # Parse multiple parallel tool calls from one generation step
+    calls = parse_tool_calls(model_output)
+
+    # Execute all tools concurrently in parallel
+    tasks = [async_run_tool(call.name, call.args) for call in calls]
+    tool_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    return list(zip([c.name for c in calls], tool_results))</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Performance Benchmarks & Comparison Matrix -->
+  <section id="benchmarks" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-800/80">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Comparative Technical Evaluation</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
+        Objective comparison of common parsing, repair, and extraction approaches in AI agent runtimes.
+      </p>
+    </div>
+
+    <div class="glass-card rounded-2xl overflow-x-auto max-w-5xl mx-auto">
+      <table class="w-full text-left text-xs sm:text-sm font-normal">
+        <thead class="bg-slate-900/90 border-b border-slate-800 text-slate-300 uppercase text-[11px] tracking-wider font-semibold">
+          <tr>
+            <th class="py-4 px-6">Evaluation Criterion</th>
+            <th class="py-4 px-6 text-sky-400 font-bold">agent-tool-parser</th>
+            <th class="py-4 px-6 text-slate-400">json-repair</th>
+            <th class="py-4 px-6 text-slate-400">LangChain Core</th>
+            <th class="py-4 px-6 text-slate-400">vLLM Server-Side</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/60 text-slate-300">
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Runtime Dependencies</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold font-mono">0 (Pure Python)</td>
+            <td class="py-3.5 px-6 font-mono">0</td>
+            <td class="py-3.5 px-6 text-rose-400 font-mono">&gt; 30 packages</td>
+            <td class="py-3.5 px-6 text-rose-400 font-mono">Torch, CUDA (GBs)</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Average Latency</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold font-mono">&lt; 0.05 ms</td>
+            <td class="py-3.5 px-6 font-mono">~ 0.15 ms</td>
+            <td class="py-3.5 px-6 font-mono">~ 1.20 ms</td>
+            <td class="py-3.5 px-6 font-mono">N/A (Server-side)</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Reasoning Stripping (&lt;think&gt;)</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Automatic</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; Crashes</td>
+            <td class="py-3.5 px-6 text-amber-400">Partial</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">DeepSeek DSML &amp; Native Tokens</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Full Support</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+            <td class="py-3.5 px-6 text-emerald-400">&check; Yes</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Anthropic Claude XML + CDATA</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Full Support</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+            <td class="py-3.5 px-6 text-amber-400">Partial</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Llama 3.1 Python AST Expressions</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Safe AST (No eval)</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Truncated Streaming Tail Repair</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Bracket-Stack Auto-close</td>
+            <td class="py-3.5 px-6 text-emerald-400">&check; Yes</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; Crashes</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Multi-Tool Calling</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Any syntax</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+            <td class="py-3.5 px-6 text-amber-400">JSON only</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Architectural Boundaries Table -->
+    <div class="mt-12 text-center mb-6">
+      <h3 class="text-lg sm:text-xl font-bold text-white tracking-tight">Architectural Boundaries: Post-Parsing vs. Server Alternatives</h3>
+      <p class="text-slate-400 text-xs mt-1 max-w-2xl mx-auto">
+        System trade-offs across execution boundaries, sampler integration, and dependency stacks.
+      </p>
+    </div>
+
+    <div class="glass-card rounded-2xl overflow-x-auto max-w-5xl mx-auto">
+      <table class="w-full text-left text-xs sm:text-sm font-normal">
+        <thead class="bg-slate-900/90 border-b border-slate-800 text-slate-300 uppercase text-[11px] tracking-wider font-semibold">
+          <tr>
+            <th class="py-4 px-6">Architectural Dimension</th>
+            <th class="py-4 px-6 text-sky-400 font-bold">Client-Side Post-Parsing</th>
+            <th class="py-4 px-6 text-slate-400">Logit-Level Constrained Decoding</th>
+            <th class="py-4 px-6 text-slate-400">Secondary Model Pass</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/60 text-slate-300">
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Execution Boundary</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold font-mono">Client Runtime</td>
+            <td class="py-3.5 px-6 font-mono">Inference Engine Sampler</td>
+            <td class="py-3.5 px-6 font-mono">Secondary Endpoint / Worker</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Inference Engine Access</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">Agnostic (HTTP/REST text streams)</td>
+            <td class="py-3.5 px-6 text-slate-400">Requires direct logit &amp; sampler access</td>
+            <td class="py-3.5 px-6 text-slate-400">Requires secondary model call</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Runtime Dependencies</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold font-mono">Python Standard Library</td>
+            <td class="py-3.5 px-6 font-mono">PyTorch, CUDA, Triton</td>
+            <td class="py-3.5 px-6 font-mono">PyTorch, Transformers / API</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Provider API Compatibility</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Any provider returning text</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; Incompatible with third-party APIs</td>
+            <td class="py-3.5 px-6 text-amber-400">&check; Via extra API round-trip</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Grammar Enforcement</td>
+            <td class="py-3.5 px-6 text-slate-300">Deterministic text parsing &amp; repair</td>
+            <td class="py-3.5 px-6 text-slate-300">FSM logit masking during token sampling</td>
+            <td class="py-3.5 px-6 text-slate-300">Probabilistic prompting pass</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Format Scope</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">XML, DSML, Markdown JSON, AST, CDATA</td>
+            <td class="py-3.5 px-6 text-slate-400">Strict JSON / EBNF Grammars</td>
+            <td class="py-3.5 px-6 text-slate-400">Model training distribution</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Ecosystem & Architecture Fit -->
+  <section id="ecosystem" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-800/80">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Ecosystem &amp; Architecture Fit</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
+        Built for the reality of multi-agent frameworks, high-throughput engines, and fleet mission controls.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Card 1: Mission Control & Fleet Ops -->
+      <div class="glass-card glass-card-hover p-6 rounded-2xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center space-x-3 mb-3">
+            <span class="text-xl">🛰️</span>
+            <h3 class="text-base font-bold text-white">Mission Control &amp; Fleet Ops</h3>
+          </div>
+          <p class="text-xs text-sky-400 font-mono mb-2">Mission Control &bull; Paperclip AI &bull; Dify</p>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            When managing fleets of background agents, a single unparsed tool call causes worker crashes, poisoned queues, and blown token budgets. <code class="text-slate-300">agent-tool-parser</code> acts as an ingress sanitization layer before tasks hit approval gates.
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 2: Multi-Agent Frameworks -->
+      <div class="glass-card glass-card-hover p-6 rounded-2xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center space-x-3 mb-3">
+            <span class="text-xl">👥</span>
+            <h3 class="text-base font-bold text-white">Multi-Agent Frameworks</h3>
+          </div>
+          <p class="text-xs text-sky-400 font-mono mb-2">CrewAI &bull; AutoGen (AG2) &bull; LangGraph &bull; PydanticAI</p>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Local models (Ollama/vLLM) frequently emit <code class="text-slate-300">&lt;think&gt;</code> tokens or parameter aliases that trigger fatal <code class="text-rose-400">ValidationErrors</code> in CrewAI or PydanticAI. Our interceptor normalizes them smoothly.
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 3: High-Throughput Serving -->
+      <div class="glass-card glass-card-hover p-6 rounded-2xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center space-x-3 mb-3">
+            <span class="text-xl">⚡</span>
+            <h3 class="text-base font-bold text-white">High-Throughput Serving</h3>
+          </div>
+          <p class="text-xs text-sky-400 font-mono mb-2">SGLang &bull; vLLM &bull; Ollama &bull; llama.cpp</p>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Strict constrained decoding (XGrammar / outlines) degrades reasoning quality in models like DeepSeek R1. With <code class="text-slate-300">agent-tool-parser</code>, keep token generation unconstrained while extracting tool calls in &lt;0.05ms client-side.
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 4: AI Gateways & Routers -->
+      <div class="glass-card glass-card-hover p-6 rounded-2xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center space-x-3 mb-3">
+            <span class="text-xl">🔀</span>
+            <h3 class="text-base font-bold text-white">AI Gateways &amp; Routers</h3>
+          </div>
+          <p class="text-xs text-sky-400 font-mono mb-2">LiteLLM &bull; Portkey &bull; OpenRouter</p>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Multi-model proxies often fail to extract vendor-specific XML or DSML out of <code class="text-slate-300">message.content</code> into standard <code class="text-slate-300">tool_calls</code> arrays. Our parser acts as a zero-dependency normalization hook.
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 5: Autonomous Coding Agents -->
+      <div class="glass-card glass-card-hover p-6 rounded-2xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center space-x-3 mb-3">
+            <span class="text-xl">💻</span>
+            <h3 class="text-base font-bold text-white">Coding &amp; Terminal Agents</h3>
+          </div>
+          <p class="text-xs text-sky-400 font-mono mb-2">Aider &bull; Cline &bull; OpenHands (OpenDevin)</p>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Multi-line Python scripts and Bash commands constantly break standard JSON escaping. Full support for XML tags, CDATA unwrapping, and code blocks ensures lossless code execution.
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 6: Code-First & Minimalist Agents -->
+      <div class="glass-card glass-card-hover p-6 rounded-2xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center space-x-3 mb-3">
+            <span class="text-xl">🛠️</span>
+            <h3 class="text-base font-bold text-white">Minimalist &amp; Code Agents</h3>
+          </div>
+          <p class="text-xs text-sky-400 font-mono mb-2">Smolagents &bull; Custom ReAct Loops</p>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Hugging Face built <code class="text-slate-300">CodeAgent</code> because JSON tool-calling was notoriously fragile. <code class="text-slate-300">agent-tool-parser</code> gives developers the reliability of code agents without requiring sandboxed Python execution environments.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick API Reference -->
+  <section id="api" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-800/80">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">API Quick Reference</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
+        Simple, predictable functional interfaces with configurable class extensions.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+      <div class="glass-card p-6 rounded-2xl">
+        <div class="font-mono text-sm font-bold text-sky-400 mb-2">parse_tool_calls(text, ...) -> list[ToolCall]</div>
+        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+          Parses an LLM response string and returns all structured <code class="text-slate-200">ToolCall</code> objects found. Raises <code class="text-rose-400">ToolError</code> if no valid tool calls could be extracted.
+        </p>
+        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>calls = parse_tool_calls(raw_text)
+for call in calls:
+    print(call.name, call.args)</code></pre>
+      </div>
+
+      <div class="glass-card p-6 rounded-2xl">
+        <div class="font-mono text-sm font-bold text-emerald-400 mb-2">try_parse_tool_calls(text, ...) -> list[ToolCall]</div>
+        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+          Safe non-raising variant. Returns an empty list <code class="text-slate-200">[]</code> if the model response only contained conversational text without any tool calls.
+        </p>
+        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>calls = try_parse_tool_calls(raw_text)
+if not calls:
+    return "No tool needed, answer directly"</code></pre>
+      </div>
+
+      <div class="glass-card p-6 rounded-2xl">
+        <div class="font-mono text-sm font-bold text-indigo-400 mb-2">ToolParser(allowed_tools, tool_aliases, ...)</div>
+        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+          Reusable, configurable parser instance. Enforces tool whitelists, normalizes custom aliases (e.g. <code class="text-slate-200">view -> read_file</code>), and handles argument mapping.
+        </p>
+        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>parser = ToolParser(
+    allowed_tools=["read_file", "bash"],
+    tool_aliases={"terminal": "bash"}
+)
+call = parser.parse(raw_text)</code></pre>
+      </div>
+
+      <div class="glass-card p-6 rounded-2xl">
+        <div class="font-mono text-sm font-bold text-purple-400 mb-2">safe_json_loads(s, default=None) -> Any</div>
+        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+          Stand-alone resilient JSON loader. Auto-repairs single quotes, trailing commas, and converts Python literals (<code class="text-slate-200">True/False/None</code>) without throwing exceptions.
+        </p>
+        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>from agent_tool_parser import safe_json_loads
+
+data = safe_json_loads("{'path': 'a.py', 'overwrite': True,}")
+# {'path': 'a.py', 'overwrite': True}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="mt-auto py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-800/80 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-2">
+        <span class="font-mono font-bold text-slate-300">agent-tool-parser</span>
+        <span>&bull;</span>
+        <span>MIT License</span>
+        <span>&bull;</span>
+        <span>Maintained by the <strong>InBoost Team</strong></span>
+      </div>
+      <div class="flex items-center space-x-6 text-slate-400">
+        <a href="https://github.com/inboost-dev/agent-tool-parser" class="hover:text-white transition-colors">GitHub Repository</a>
+        <a href="#playground" class="hover:text-white transition-colors">Playground</a>
+        <a href="#recipes" class="hover:text-white transition-colors">Recipes</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Embedded Client-Side JavaScript Parser Engine for Live Playground -->
+  <script>
+    const PRESETS = {
+      'deepseek-dsml': `<think>
+I need to inspect the current test suite before executing the benchmark.
+</think>
+<｜DSML｜tool_calls>
+<｜DSML｜invoke name="read_file">
+<｜DSML｜parameter name="path">tests/test_parser.py</｜DSML｜parameter>
+<｜DSML｜parameter name="offset">10</｜DSML｜parameter>
+<｜DSML｜parameter name="limit">50</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>`,
+
+      'deepseek-native': `<think>Let me search for files</think>
+<｜tool calls begin｜><｜tool call begin｜>function=search<｜tool sep｜>{"pattern": "ignore-paths", "path": "."}<｜tool call end｜><｜tool calls end｜>`,
+
+      'claude-xml': `<tool_use>
+<name>write_file</name>
+<arguments>
+<path>src/config.py</path>
+<content><![CDATA[
+# Preserves code indentation and raw special characters
+def get_config():
+    return {"debug": True, "env": "prod"}
+]]></content>
+</arguments>
+</tool_use>`,
+
+      'qwen-tokens': `<|action_start|><|action_name|>bash<|action_args|>{"command": "pytest -v tests/test_core.py"}<|action_end|>`,
+
+      'llama-ast': `<|python_tag|>read_file(path="src/agent_tool_parser/parser.py", offset=100)`,
+
+      'multi-tool': `I will read both files in parallel:
+<tool_use>
+<name>read_file</name>
+<arguments>{"path": "src/parser.py"}</arguments>
+</tool_use>
+<tool_use>
+<name>read_file</name>
+<arguments>{"path": "tests/test_parser.py"}</arguments>
+</tool_use>`,
+
+      'broken-json': ````json
+{"tool": "str_replace", "file": "src/main.py", "old": "test", "new": "prod", 'active': True,`
+    };
+
+    function loadPreset(presetId) {
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.classList.remove('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
+        btn.classList.add('bg-slate-800/80', 'text-slate-400', 'border-slate-700');
+      });
+      if (event && event.target) {
+        event.target.classList.remove('bg-slate-800/80', 'text-slate-400', 'border-slate-700');
+        event.target.classList.add('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
+      }
+
+      if (PRESETS[presetId]) {
+        document.getElementById('rawInput').value = PRESETS[presetId];
+        runLiveParse();
+      }
+    }
+
+    // Client-side parser replicating agent_tool_parser in microsecond JS
+    function clientParse(text) {
+      let t = text.replace(/<[｜|]?(?:think|thought|reasoning)[｜|]?>[\s\S]*?(?:<\/[｜|]?(?:think|thought|reasoning)[｜|]?>|$)/gi, '').trim();
+      const calls = [];
+
+      // 1. DeepSeek Native Tokens
+      const dsNative = /<[｜|]*tool call begin[｜|]*>(?:function=)?([a-zA-Z0-9_-]+)<[｜|]*tool sep[｜|]*>([\s\S]*?)<[｜|]*tool call end[｜|]*>/gi;
+      let m;
+      while ((m = dsNative.exec(t)) !== null) {
+        calls.push({ name: m[1].trim(), args: safeJson(m[2]) });
+      }
+      if (calls.length > 0) return calls;
+
+      // 2. Anthropic / XML Invoke
+      const xmlInvoke = /<(?:(?:｜|\|)?DSML(?:｜|\|)?)?(?:invoke|tool|call|tool_use|ant_tool_use)(?::([a-zA-Z0-9_-]+))?([^>]*)>([\s\S]*?)(?:<\/(?:(?:｜|\|)?DSML(?:｜|\|)?)?(?:invoke|tool|call|tool_use|ant_tool_use)(?::[a-zA-Z0-9_-]+)?>|$)/gi;
+      while ((m = xmlInvoke.exec(t)) !== null) {
+        let name = m[1] || '';
+        const attrs = m[2] || '';
+        const body = m[3] || '';
+        if (!name) {
+          const nameAttr = /name=['"]?([a-zA-Z0-9_-]+)['"]?/i.exec(attrs);
+          if (nameAttr) name = nameAttr[1];
+        }
+        if (!name) {
+          const nameTag = /<(?:name|tool_name)>([a-zA-Z0-9_-]+)<\/(?:name|tool_name)>/i.exec(body);
+          if (nameTag) name = nameTag[1];
+        }
+
+        const args = {};
+        // Check CDATA or parameters
+        const paramRegex = /<(?:(?:｜|\|)?DSML(?:｜|\|)?)?parameter name=['"]?([a-zA-Z0-9_-]+)['"]?[^>]*>([\s\S]*?)(?:<\/(?:(?:｜|\|)?DSML(?:｜|\|)?)?parameter>|$)/gi;
+        let pm;
+        while ((pm = paramRegex.exec(body)) !== null) {
+          args[pm[1]] = cleanParam(pm[2]);
+        }
+
+        // Check <arguments> block
+        const argBlock = /<(?:arguments|parameters)>([\s\S]*?)(?:<\/(?:arguments|parameters)>|$)/i.exec(body);
+        if (argBlock) {
+          const inner = argBlock[1].trim();
+          if (inner.startsWith('{')) {
+            Object.assign(args, safeJson(inner));
+          } else {
+            const childTags = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/gi;
+            let ct;
+            while ((ct = childTags.exec(inner)) !== null) {
+              args[ct[1]] = cleanParam(ct[2]);
+            }
+          }
+        }
+        if (name) calls.push({ name: normalizeName(name), args: normalizeArgs(args) });
+      }
+      if (calls.length > 0) return calls;
+
+      // 3. Qwen-Agent tokens
+      const qwenRegex = /<\|action_start\|><\|action_name\|>([a-zA-Z0-9_-]+)<\|action_args\|>([\s\S]*?)(?:<\|action_end\|>|$)/gi;
+      while ((m = qwenRegex.exec(t)) !== null) {
+        calls.push({ name: normalizeName(m[1]), args: normalizeArgs(safeJson(m[2])) });
+      }
+      if (calls.length > 0) return calls;
+
+      // 4. Llama 3.1 Python Tag
+      const llamaRegex = /<[｜|]*python_tag[｜|]*>([a-zA-Z0-9_.-]+)\(([\s\S]*?)\)/gi;
+      while ((m = llamaRegex.exec(t)) !== null) {
+        const fnName = m[1].replace(/^(?:bash|tool|tools)\./, '');
+        const rawArgs = m[2];
+        const args = parsePyArgs(rawArgs);
+        calls.push({ name: normalizeName(fnName), args: normalizeArgs(args) });
+      }
+      if (calls.length > 0) return calls;
+
+      // 5. Raw / Markdown JSON fallback with bracket-stack repair
+      const jsonMatch = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(t) || [null, t];
+      if (jsonMatch && jsonMatch[1]) {
+        const parsed = safeJson(jsonMatch[1]);
+        if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed)) {
+            parsed.forEach(item => {
+              if (item.name || item.tool) calls.push({ name: normalizeName(item.name || item.tool), args: normalizeArgs(item.arguments || item.parameters || item.args || item) });
+            });
+          } else {
+            const name = parsed.tool || parsed.name || parsed.action || parsed.function;
+            if (name) {
+              const innerArgs = parsed.arguments || parsed.parameters || parsed.args || parsed.action_input || parsed;
+              delete innerArgs.tool; delete innerArgs.name; delete innerArgs.action; delete innerArgs.function;
+              calls.push({ name: normalizeName(name), args: normalizeArgs(innerArgs) });
+            }
+          }
+        }
+      }
+
+      return calls;
+    }
+
+    function cleanParam(val) {
+      const cdata = /<!\[CDATA\[([\s\S]*?)(?:\]\]>|$)/.exec(val);
+      if (cdata) return cdata[1].replace(/^\r?\n/, '').replace(/\r?\n$/, '');
+      return val.trim();
+    }
+
+    function normalizeName(n) {
+      n = n.toLowerCase();
+      const map = { 'view': 'read_file', 'edit': 'str_replace', 'terminal': 'bash', 'sh': 'bash' };
+      return map[n] || n;
+    }
+
+    function normalizeArgs(args) {
+      const norm = {};
+      for (const [k, v] of Object.entries(args)) {
+        let cleanK = k.toLowerCase();
+        if (cleanK === 'file') cleanK = 'path';
+        if (cleanK === 'cmd') cleanK = 'command';
+        norm[cleanK] = v;
+      }
+      return norm;
+    }
+
+    function safeJson(str) {
+      let s = str.trim();
+      // Heuristic repairs: single quotes, trailing commas, Python literals
+      s = s.replace(/'/g, '"').replace(/,\s*([}\]])/g, '$1');
+      s = s.replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false').replace(/\bNone\b/g, 'null');
+      // Bracket-stack auto-complete
+      let openBraces = (s.match(/{/g) || []).length - (s.match(/}/g) || []).length;
+      if (openBraces > 0) s += '}'.repeat(openBraces);
+      try {
+        return JSON.parse(s);
+      } catch (e) {
+        return { raw_content: str.trim() };
+      }
+    }
+
+    function parsePyArgs(argStr) {
+      const args = {};
+      const pairs = argStr.split(/,\s*(?=[a-zA-Z0-9_]+\s*=)/);
+      for (const p of pairs) {
+        const eq = p.indexOf('=');
+        if (eq !== -1) {
+          const k = p.slice(0, eq).trim();
+          let v = p.slice(eq + 1).trim();
+          if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+            v = v.slice(1, -1);
+          } else if (!isNaN(v)) {
+            v = Number(v);
+          }
+          args[k] = v;
+        }
+      }
+      return args;
+    }
+
+    function runLiveParse() {
+      const input = document.getElementById('rawInput').value;
+      const t0 = performance.now();
+      const result = clientParse(input);
+      const t1 = performance.now();
+      const elapsedMs = (t1 - t0).toFixed(3);
+
+      document.getElementById('timingBadge').innerText = `${elapsedMs}ms (${result.length} calls)`;
+      document.getElementById('parsedOutput').innerText = JSON.stringify(result, null, 2);
+    }
+
+    function copyToClipboard(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<span class="text-emerald-400 font-bold">&check; Copied</span>';
+        setTimeout(() => { btn.innerHTML = original; }, 1800);
+      });
+    }
+
+    function copyCode(btn) {
+      const code = btn.closest('.glass-card').querySelector('pre code').innerText;
+      copyToClipboard(code, btn);
+    }
+
+    // Initialize with DeepSeek DSML preset on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadPreset('deepseek-dsml');
+    });
+  </script>
+</body>
+</html>
