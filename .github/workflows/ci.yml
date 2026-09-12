@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy pytest maturin
+          pip install -e .
+
+      - name: Run Ruff Linter & Format Check
+        run: |
+          ruff check src tests
+          ruff format --check src tests
+
+      - name: Run Mypy Type Checker
+        run: |
+          mypy src
+
+      - name: Run Unit Tests (Accelerated / Native if built)
+        run: |
+          python -m unittest discover -s tests
+
+      - name: Run Unit Tests (Pure-Python Universal Fallback)
+        run: |
+          AGENT_TOOL_PARSER_NO_EXT=1 python -m unittest discover -s tests
+
+  rust-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Run Rustfmt Check
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run Cargo Tests
+        run: cargo test --all-targets
+      - name: Build C Library
+        run: cargo build --release -p agent-tool-parser-c
+      - name: Run Go Binding Tests
+        run: LD_LIBRARY_PATH="$(pwd)/target/release:$LD_LIBRARY_PATH" go test -v ./bindings/go/agenttoolparser/...
+      - name: Build WebAssembly Target
+        run: cargo build --target wasm32-unknown-unknown --release -p agent-tool-parser-wasm
+      - name: Set up Python for PyO3 Parity Verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build PyO3 Native Extension & Run Dual-Engine Parity Tests
+        run: |
+          cargo build --release -p agent-tool-parser-py
+          cp target/release/lib_accelerated.so src/agent_tool_parser/_accelerated.so
+          PYTHONPATH=src python -m unittest discover -s tests -v

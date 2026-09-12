@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.eggs/
+venv/
+.env
+
+# Rust build artifacts
+target/
+
+# Local editor & agent artifacts
+.antigravity/
+.agents/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Release and distribution packaging
+c-dist/
+release-assets/
