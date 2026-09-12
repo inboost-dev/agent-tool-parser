@@ -1,0 +1,17 @@
+[package]
+name = "agent-tool-parser-wasm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WebAssembly bindings for agent-tool-parser (for browser, Node.js, Cloudflare Workers)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+agent-tool-parser-core = { path = "../agent-tool-parser-core" }
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
+serde_json.workspace = true

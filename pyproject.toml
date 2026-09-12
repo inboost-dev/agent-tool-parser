@@ -1,0 +1,117 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+manifest-path = "crates/agent-tool-parser-py/Cargo.toml"
+python-source = "src"
+module-name = "agent_tool_parser._accelerated"
+features = ["pyo3/extension-module"]
+
+[project]
+name = "agent-tool-parser"
+version = "0.1.1"
+description = "High-performance dual-engine (Rust + Python) tool call parser for DeepSeek R1/V3, Claude 3.7, Qwen 2.5, Llama 3, OpenAI & ReAct formats with auto-repair and zero dependencies."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+keywords = [
+    "llm",
+    "agent",
+    "tool-calling",
+    "function-calling",
+    "deepseek",
+    "dsml",
+    "claude",
+    "qwen",
+    "llama",
+    "json-repair",
+    "zero-dependencies",
+    "inboost",
+]
+authors = [
+    { name = "InBoost Team" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/inboost-dev/agent-tool-parser"
+Documentation = "https://inboost-dev.github.io/agent-tool-parser/"
+Repository = "https://github.com/inboost-dev/agent-tool-parser.git"
+Issues = "https://github.com/inboost-dev/agent-tool-parser/issues"
+Changelog = "https://github.com/inboost-dev/agent-tool-parser/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+fast = [
+    "orjson>=3.9.0",
+]
+repair = [
+    "json-repair>=0.30.0",
+]
+all = [
+    "orjson>=3.9.0",
+    "json-repair>=0.30.0",
+]
+dev = [
+    "mypy>=1.10.0",
+    "pytest>=7.0.0",
+    "ruff>=0.5.0",
+    "orjson>=3.9.0",
+    "json-repair>=0.30.0",
+]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "RUF",   # Ruff-specific rules
+]
+ignore = [
+    "E501",   # line length handled by formatter
+    "RUF001", # intentional unicode tokens (DeepSeek fullwidth vertical line ｜, ChatGLM ✿)
+    "RUF002", # intentional unicode in docstrings
+    "RUF003", # intentional unicode in comments
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["orjson.*", "json_repair.*", "agent_tool_parser._accelerated.*"]
+ignore_missing_imports = true
