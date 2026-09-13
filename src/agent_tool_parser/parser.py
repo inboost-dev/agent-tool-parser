@@ -94,6 +94,11 @@ _INVOKE_END_RE = re.compile(
     re.IGNORECASE,
 )
 
+_PARAM_END_FALLBACK_RE = re.compile(
+    r"""</[｜|]+(?:dsml[｜|]*)?[\w:-]+\s*>|</dsml:[\w:-]+\s*>|</(?:tool_name|function_name|tool|invoke|parameter|param|arg|argument)\s*>""",
+    re.IGNORECASE,
+)
+
 
 def _extract_xml_parameters(body: str) -> list[tuple[str, str]]:
     cdata_spans: list[tuple[int, int]] = []
@@ -137,7 +142,11 @@ def _extract_xml_parameters(body: str) -> list[tuple[str, str]]:
             if m_inv_end:
                 val = slice_str[: m_inv_end.start()]
             else:
-                val = slice_str
+                m_fallback = _PARAM_END_FALLBACK_RE.search(slice_str, search_from)
+                if m_fallback:
+                    val = slice_str[: m_fallback.start()]
+                else:
+                    val = slice_str
         results.append((pname, val))
     return results
 

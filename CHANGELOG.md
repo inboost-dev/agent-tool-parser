@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-09-13
+
+### Fixed
+- **DSML & XML Mismatched Parameter Closing Tag Robustness**:
+  - Resolved classical ParseGuard edge case where models (such as MiniMax-M3, DeepSeek R1/V3) confuse `<tool_name>` with `<parameter>` and generate mismatched closing tags like `</｜DSML｜tool_name>` or `</tool_name>` instead of `</｜DSML｜parameter>`.
+  - Added `PARAM_END_FALLBACK_RE` in both Rust core (`agent-tool-parser-core`) and Python fallback engines, safely stripping hallucinated closing tags from argument values without truncating outer invoke wrappers or compromising CDATA blocks.
+  - Added full test coverage in Rust (`test_degenerate_dsml_parameter_typo_closing_tag`) and Python.
+
+## [0.1.1] - 2026-09-12
+
+### Changed
+- Upgraded Python build backend to `maturin` with `abi3-py39` multi-platform wheels (Linux, macOS, Windows).
+- Enabled automated cross-platform releases and Go proxy auto-registration in GitHub Actions.
+
 ## [0.1.0] - 2026-09-12
 
 ### Added

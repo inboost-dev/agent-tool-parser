@@ -35,6 +35,12 @@ static INVOKE_END_RE: Lazy<Regex> = Lazy::new(|| {
     ).unwrap()
 });
 
+static PARAM_END_FALLBACK_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r#"(?is)</[｜|]+(?:dsml[｜|]*)?[\w:-]+\s*>|</dsml:[\w:-]+\s*>|</(?:tool_name|function_name|tool|invoke|parameter|param|arg|argument)\s*>"#
+    ).unwrap()
+});
+
 fn extract_xml_parameters(body: &str) -> Vec<(String, String)> {
     let mut cdata_spans: Vec<(usize, usize)> = Vec::new();
     let mut cur = 0;
@@ -90,6 +96,8 @@ fn extract_xml_parameters(body: &str) -> Vec<(String, String)> {
             if let Some(m) = PARAM_END_RE.find(&slice[search_from..]) {
                 &slice[..(search_from + m.start())]
             } else if let Some(m) = INVOKE_END_RE.find(&slice[search_from..]) {
+                &slice[..(search_from + m.start())]
+            } else if let Some(m) = PARAM_END_FALLBACK_RE.find(&slice[search_from..]) {
                 &slice[..(search_from + m.start())]
             } else {
                 slice

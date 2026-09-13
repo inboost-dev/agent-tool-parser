@@ -167,6 +167,25 @@ fn test_degenerate_mismatched_closing_tag() {
 }
 
 #[test]
+fn test_degenerate_dsml_parameter_typo_closing_tag() {
+    let text = r#"<｜DSML｜tool_calls>
+<｜DSML｜tool name=search>
+<｜DSML｜parameter name=pattern>vector databases</｜DSML｜tool_name>
+<｜DSML｜parameter name=limit>10</｜DSML｜tool_name>
+</｜DSML｜tool>
+</｜DSML｜tool_calls>"#;
+    let call = parse_tool_call(text).unwrap();
+    assert_eq!(call.name, "search");
+    assert_eq!(call.args["pattern"], "vector databases");
+    assert_eq!(call.args["limit"], 10);
+
+    let text_invoke = "<invoke name=\"bash\"><parameter name=\"cmd\">pytest</tool_name></invoke>";
+    let call_invoke = parse_tool_call(text_invoke).unwrap();
+    assert_eq!(call_invoke.name, "bash");
+    assert_eq!(call_invoke.args["command"], "pytest");
+}
+
+#[test]
 fn test_degenerate_html_entities_decoding() {
     let text = "<invoke name=\"bash\"><parameter name=\"cmd\">cat &lt; input.txt &amp;&amp; echo &quot;hello&quot; &#39;world&#39;</parameter></invoke>";
     let call = parse_tool_call(text).unwrap();

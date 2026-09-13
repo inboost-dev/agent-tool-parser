@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "agent-tool-parser-c"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "agent-tool-parser-core",
  "serde_json",
@@ -12,7 +12,7 @@ dependencies = [
 
 [[package]]
 name = "agent-tool-parser-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "html-escape",
  "once_cell",
@@ -23,7 +23,7 @@ dependencies = [
 
 [[package]]
 name = "agent-tool-parser-py"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "agent-tool-parser-core",
  "pyo3",
@@ -33,7 +33,7 @@ dependencies = [
 
 [[package]]
 name = "agent-tool-parser-wasm"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "agent-tool-parser-core",
  "serde-wasm-bindgen",

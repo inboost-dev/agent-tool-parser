@@ -1,9 +1,9 @@
 # agent-tool-parser ⚡
 
 [![Documentation](https://img.shields.io/badge/docs-interactive%20playground-blueviolet.svg)](https://inboost-dev.github.io/agent-tool-parser/)
-[![PyPI version](https://img.shields.io/badge/pypi-v0.1.1-blue.svg)](https://pypi.org/project/agent-tool-parser/)
+[![PyPI version](https://img.shields.io/badge/pypi-v0.1.2-blue.svg)](https://pypi.org/project/agent-tool-parser/)
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://pypi.org/)
-[![Crates.io](https://img.shields.io/badge/crates.io-v0.1.1-orange.svg)](https://crates.io/crates/agent-tool-parser-core)
+[![Crates.io](https://img.shields.io/badge/crates.io-v0.1.2-orange.svg)](https://crates.io/crates/agent-tool-parser-core)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-red.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)]()
