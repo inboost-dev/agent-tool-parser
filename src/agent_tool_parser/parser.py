@@ -1025,7 +1025,7 @@ class ToolParser:
             key = m2.group("key")
             rest = m2.group("rest")
             if open_q is None:
-                cands.append(f'{{{close_q}{key}{close_q}: {rest}')
+                cands.append(f"{{{close_q}{key}{close_q}: {rest}")
             else:
                 start_idx = m2.start("open")
                 cands.append("{" + raw[start_idx:])
