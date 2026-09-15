@@ -209,6 +209,55 @@ fn test_degenerate_single_quotes_with_inner_double_quotes() {
 }
 
 #[test]
+fn test_headless_json_minimax_prefix_omissions() {
+    // 1. Omitted `{"` or `{` with key name `tool"`:
+    let text1 = r#"tool": "bash", "command": "ls -la"}"#;
+    let call1 = parse_tool_call(text1).unwrap();
+    assert_eq!(call1.name, "bash");
+    assert_eq!(call1.args["command"], "ls -la");
+
+    // 2. Omitted `{"tool`:
+    let text2 = r#": "read_file", "path": "src/main.rs"}"#;
+    let call2 = parse_tool_call(text2).unwrap();
+    assert_eq!(call2.name, "read_file");
+    assert_eq!(call2.args["path"], "src/main.rs");
+
+    let text3 = r#"": "read_file", "path": "src/main.rs"}"#;
+    let call3 = parse_tool_call(text3).unwrap();
+    assert_eq!(call3.name, "read_file");
+    assert_eq!(call3.args["path"], "src/main.rs");
+
+    // 3. Omitted `{` with quoted key:
+    let text4 = r#""tool": "bash", "command": "ls -la"}"#;
+    let call4 = parse_tool_call(text4).unwrap();
+    assert_eq!(call4.name, "bash");
+    assert_eq!(call4.args["command"], "ls -la");
+
+    // 4. Omitted `{` with nested arguments:
+    let text5 = r#""name": "read_file", "arguments": {"path": "src/main.rs"}}"#;
+    let call5 = parse_tool_call(text5).unwrap();
+    assert_eq!(call5.name, "read_file");
+    assert_eq!(call5.args["path"], "src/main.rs");
+
+    let text6 = r#"name": "read_file", "arguments": {"path": "src/main.rs"}}"#;
+    let call6 = parse_tool_call(text6).unwrap();
+    assert_eq!(call6.name, "read_file");
+    assert_eq!(call6.args["path"], "src/main.rs");
+
+    // 5. In markdown codeblock:
+    let text7 = "```json\ntool\": \"bash\", \"command\": \"ls -la\"}\n```";
+    let call7 = parse_tool_call(text7).unwrap();
+    assert_eq!(call7.name, "bash");
+    assert_eq!(call7.args["command"], "ls -la");
+
+    // 6. With leading conversational text:
+    let text8 = "Here is the tool call: : \"read_file\", \"path\": \"src/main.rs\"}";
+    let call8 = parse_tool_call(text8).unwrap();
+    assert_eq!(call8.name, "read_file");
+    assert_eq!(call8.args["path"], "src/main.rs");
+}
+
+#[test]
 fn test_degenerate_empty_or_whitespace_tool_name_rejected() {
     let cases = [
         "{\"tool\": \"\", \"command\": \"ls\"}",

@@ -99,6 +99,16 @@ _PARAM_END_FALLBACK_RE = re.compile(
     re.IGNORECASE,
 )
 
+_HEADLESS_COLON_RE = re.compile(
+    r"""(?:^|[\s`"'])(?P<delim>":|:|':)\s*["'](?P<tname>[\w-]+)["']\s*,\s*(?P<rest>.*)""",
+    re.DOTALL | re.IGNORECASE,
+)
+
+_HEADLESS_KEY_RE = re.compile(
+    r"""(?:^|[\s`"'])(?P<open>["'])?(?P<key>tool|name|function|action|tool_name|function_name)(?P<close>["'])?\s*:\s*(?P<rest>.*)""",
+    re.DOTALL | re.IGNORECASE,
+)
+
 
 def _extract_xml_parameters(body: str) -> list[tuple[str, str]]:
     cdata_spans: list[tuple[int, int]] = []
@@ -995,12 +1005,44 @@ class ToolParser:
 
         return calls
 
+    def _repair_headless_json(self, raw: str) -> list[str]:
+        """Reconstructs prefix-truncated / headless JSON objects (e.g. MiniMax prefill drops)."""
+        cands: list[str] = []
+
+        # 1. Colon prefix omission: `: "tool_name", ...` or `": "tool_name", ...`
+        m1 = _HEADLESS_COLON_RE.search(raw)
+        if m1:
+            tname = m1.group("tname")
+            rest = m1.group("rest")
+            cands.append(f'{{"tool": "{tname}", {rest}')
+            cands.append(f'{{"name": "{tname}", {rest}')
+
+        # 2. Unquoted or unbraced key omission: `tool": "bash", ...` or `"tool": "bash", ...`
+        m2 = _HEADLESS_KEY_RE.search(raw)
+        if m2:
+            open_q = m2.group("open")
+            close_q = m2.group("close") or '"'
+            key = m2.group("key")
+            rest = m2.group("rest")
+            if open_q is None:
+                cands.append(f'{{{close_q}{key}{close_q}: {rest}')
+            else:
+                start_idx = m2.start("open")
+                cands.append("{" + raw[start_idx:])
+
+        return cands
+
     def _try_parse_json(self, raw: str) -> list[ToolCall]:
         """Extracts tool calls formatted as JSON (markdown blocks, OpenAI formats, conversational JSON)."""
-        if "{" not in raw and "[" not in raw and "```" not in raw:
+        if "{" not in raw and "[" not in raw and "```" not in raw and ":" not in raw:
             return []
 
         calls: list[ToolCall] = []
+
+        # =====================================================================
+        # TIER 1: STRICT SPECIFICATION COMPLIANCE (Fast-Path)
+        # Checks canonical markdown JSON code blocks, RFC-8259 arrays, and balanced objects.
+        # =====================================================================
 
         # 1. Check all markdown code blocks (```json ... ```)
         m_blocks = list(_JSON_BLOCK_RE.finditer(raw)) + list(_JSON_ARRAY_BLOCK_RE.finditer(raw))
@@ -1023,7 +1065,7 @@ class ToolParser:
                 if extracted:
                     return extracted
 
-        # 3. Check JSON candidates via extract_json_objects
+        # 3. Check JSON candidates via extract_json_objects (balanced braces)
         candidates = extract_json_objects(raw)
         if candidates:
             for cand in candidates:
@@ -1031,6 +1073,24 @@ class ToolParser:
                 if data is not None:
                     extracted = self._extract_calls_from_dict(data, source=cand)
                     calls.extend(extracted)
+        if calls:
+            return calls
+
+        # =====================================================================
+        # TIER 2: FAULT-TOLERANT RECOVERY (ParseGuard Layer)
+        # If input deviates from balanced JSON specification (e.g. MiniMax / prompt-prefill
+        # prefix omissions: `tool": "bash", ...` or `: "read_file", ...`), attempt deterministic recovery.
+        # =====================================================================
+        recovered = self._repair_headless_json(raw)
+        for cand in recovered:
+            sub_candidates = extract_json_objects(cand)
+            for sub_cand in sub_candidates:
+                data = safe_json_loads(sub_cand, default=None)
+                if data is not None:
+                    extracted = self._extract_calls_from_dict(data, source=sub_cand)
+                    calls.extend(extracted)
+            if calls:
+                return calls
 
         return calls
 

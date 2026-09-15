@@ -199,6 +199,54 @@ class TestDegenerateInputs(unittest.TestCase):
         self.assertEqual(call.name, "bash")
         self.assertEqual(call.args["command"], 'echo "Hello World"')
 
+    def test_headless_json_minimax_prefix_omissions(self):
+        """MiniMax/prompt-prefill prefix drops: missing { or {"tool or {" prefix."""
+        # 1. Omitted `{"` or `{` with key name `tool"`:
+        text1 = 'tool": "bash", "command": "ls -la"}'
+        call1 = parse_tool_call(text1)
+        self.assertEqual(call1.name, "bash")
+        self.assertEqual(call1.args["command"], "ls -la")
+
+        # 2. Omitted `{"tool`:
+        text2 = ': "read_file", "path": "src/main.rs"}'
+        call2 = parse_tool_call(text2)
+        self.assertEqual(call2.name, "read_file")
+        self.assertEqual(call2.args["path"], "src/main.rs")
+
+        text3 = '": "read_file", "path": "src/main.rs"}'
+        call3 = parse_tool_call(text3)
+        self.assertEqual(call3.name, "read_file")
+        self.assertEqual(call3.args["path"], "src/main.rs")
+
+        # 3. Omitted `{` with quoted key:
+        text4 = '"tool": "bash", "command": "ls -la"}'
+        call4 = parse_tool_call(text4)
+        self.assertEqual(call4.name, "bash")
+        self.assertEqual(call4.args["command"], "ls -la")
+
+        # 4. Omitted `{` with nested arguments:
+        text5 = '"name": "read_file", "arguments": {"path": "src/main.rs"}}'
+        call5 = parse_tool_call(text5)
+        self.assertEqual(call5.name, "read_file")
+        self.assertEqual(call5.args["path"], "src/main.rs")
+
+        text6 = 'name": "read_file", "arguments": {"path": "src/main.rs"}}'
+        call6 = parse_tool_call(text6)
+        self.assertEqual(call6.name, "read_file")
+        self.assertEqual(call6.args["path"], "src/main.rs")
+
+        # 5. In markdown codeblock:
+        text7 = '```json\ntool": "bash", "command": "ls -la"}\n```'
+        call7 = parse_tool_call(text7)
+        self.assertEqual(call7.name, "bash")
+        self.assertEqual(call7.args["command"], "ls -la")
+
+        # 6. With leading conversational text:
+        text8 = 'Here is the tool call: : "read_file", "path": "src/main.rs"}'
+        call8 = parse_tool_call(text8)
+        self.assertEqual(call8.name, "read_file")
+        self.assertEqual(call8.args["path"], "src/main.rs")
+
     def test_degenerate_empty_or_whitespace_tool_name_rejected(self):
         """Empty or whitespace-only tool name must be rejected."""
         cases = [

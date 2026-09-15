@@ -166,6 +166,17 @@ static PYTHON_CODEBLOCK_RE: Lazy<Regex> =
 static FENCE_CODEBLOCK_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?s)```(?:[a-zA-Z0-9_-]+)?\s*(.*?)\s*```").unwrap());
 
+static HEADLESS_COLON_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r#"(?is)(?:^|[\s`"'])(?P<delim>":|:|':)\s*["'](?P<tname>[\w-]+)["']\s*,\s*(?P<rest>.*)"#,
+    )
+    .unwrap()
+});
+
+static HEADLESS_KEY_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"(?is)(?:^|[\s`"'])(?P<open>["'])?(?P<key>tool|name|function|action|tool_name|function_name)(?P<close>["'])?\s*:\s*(?P<rest>.*)"#).unwrap()
+});
+
 fn extract_direct_tags(text: &str, require_closing: bool) -> Vec<(String, String)> {
     static TAG_START_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"<([a-zA-Z0-9_-]+)>"#).unwrap());
 
@@ -946,14 +957,48 @@ impl ToolParser {
         calls
     }
 
+    fn repair_headless_json(&self, raw: &str) -> Vec<String> {
+        let mut cands = Vec::new();
+
+        // 1. Colon prefix omission: `: "tool_name", ...` or `": "tool_name", ...`
+        if let Some(caps) = HEADLESS_COLON_RE.captures(raw) {
+            let tname = caps.name("tname").unwrap().as_str();
+            let rest = caps.name("rest").unwrap().as_str();
+            cands.push(format!(r#"{{"tool": "{}", {}"#, tname, rest));
+            cands.push(format!(r#"{{"name": "{}", {}"#, tname, rest));
+        }
+
+        // 2. Unquoted or unbraced key omission: `tool": "bash", ...` or `"tool": "bash", ...`
+        if let Some(caps) = HEADLESS_KEY_RE.captures(raw) {
+            let open_q = caps.name("open");
+            let close_q = caps.name("close").map_or("\"", |m| m.as_str());
+            let key = caps.name("key").unwrap().as_str();
+            let rest = caps.name("rest").unwrap().as_str();
+
+            if let Some(oq) = open_q {
+                let start_idx = oq.start();
+                cands.push(format!("{{{}", &raw[start_idx..]));
+            } else {
+                cands.push(format!("{{{}{}{}: {}", close_q, key, close_q, rest));
+            }
+        }
+
+        cands
+    }
+
     fn try_parse_json(&self, raw: &str) -> Vec<ToolCall> {
-        if !raw.contains('{') && !raw.contains('[') && !raw.contains("```") {
+        if !raw.contains('{') && !raw.contains('[') && !raw.contains("```") && !raw.contains(':') {
             return Vec::new();
         }
 
         let mut calls = Vec::new();
 
-        // 1. Check markdown blocks ```json ... ```
+        // =====================================================================
+        // TIER 1: STRICT SPECIFICATION COMPLIANCE (Fast-Path)
+        // Checks canonical markdown JSON code blocks, RFC-8259 arrays, and balanced objects.
+        // =====================================================================
+
+        // 1. Markdown code blocks ```json ... ```
         for mb in JSON_BLOCK_RE.captures_iter(raw) {
             let blob = mb.get(1).unwrap().as_str();
             if let Some(v) = safe_json_loads(blob) {
@@ -981,11 +1026,32 @@ impl ToolParser {
             }
         }
 
-        // 3. Candidates from extract_json_objects
+        // 3. Balanced JSON objects via standard bracket tracking
         let candidates = extract_json_objects(raw);
         for cand in candidates {
             if let Some(v) = safe_json_loads(&cand) {
                 calls.extend(self.extract_calls_from_value(&v, &cand));
+            }
+        }
+        if !calls.is_empty() {
+            return calls;
+        }
+
+        // =====================================================================
+        // TIER 2: FAULT-TOLERANT RECOVERY (ParseGuard Layer)
+        // If input deviates from balanced JSON specification (e.g. MiniMax / prompt-prefill
+        // prefix omissions: `tool": "bash", ...` or `: "read_file", ...`), attempt deterministic recovery.
+        // =====================================================================
+        let recovered = self.repair_headless_json(raw);
+        for cand in recovered {
+            let sub_candidates = extract_json_objects(&cand);
+            for sub_cand in sub_candidates {
+                if let Some(v) = safe_json_loads(&sub_cand) {
+                    calls.extend(self.extract_calls_from_value(&v, &sub_cand));
+                }
+            }
+            if !calls.is_empty() {
+                return calls;
             }
         }
 
