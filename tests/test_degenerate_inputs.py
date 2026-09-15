@@ -201,51 +201,100 @@ class TestDegenerateInputs(unittest.TestCase):
 
     def test_headless_json_minimax_prefix_omissions(self):
         """MiniMax/prompt-prefill prefix drops: missing { or {"tool or {" prefix."""
-        # 1. Omitted `{"` or `{` with key name `tool"`:
-        text1 = 'tool": "bash", "command": "ls -la"}'
-        call1 = parse_tool_call(text1)
-        self.assertEqual(call1.name, "bash")
-        self.assertEqual(call1.args["command"], "ls -la")
+        # Pattern 1: Omitted opening curly brace before key (tool/name/action)
+        p1_1 = 'tool": "bash", "command": "git diff"}'
+        call1_1 = parse_tool_call(p1_1)
+        self.assertEqual(call1_1.name, "bash")
+        self.assertEqual(call1_1.args["command"], "git diff")
 
-        # 2. Omitted `{"tool`:
-        text2 = ': "read_file", "path": "src/main.rs"}'
-        call2 = parse_tool_call(text2)
-        self.assertEqual(call2.name, "read_file")
-        self.assertEqual(call2.args["path"], "src/main.rs")
+        p1_2 = 'name": "bash", "input": {"command": "ls"}}'
+        call1_2 = parse_tool_call(p1_2)
+        self.assertEqual(call1_2.name, "bash")
+        self.assertEqual(call1_2.args["command"], "ls")
 
-        text3 = '": "read_file", "path": "src/main.rs"}'
-        call3 = parse_tool_call(text3)
-        self.assertEqual(call3.name, "read_file")
-        self.assertEqual(call3.args["path"], "src/main.rs")
+        p1_3 = 'action": "read_file", "path": "main.py"}'
+        call1_3 = parse_tool_call(p1_3)
+        self.assertEqual(call1_3.name, "read_file")
+        self.assertEqual(call1_3.args["path"], "main.py")
 
-        # 3. Omitted `{` with quoted key:
-        text4 = '"tool": "bash", "command": "ls -la"}'
-        call4 = parse_tool_call(text4)
-        self.assertEqual(call4.name, "bash")
-        self.assertEqual(call4.args["command"], "ls -la")
+        # Pattern 2: Omitted brace and opening quote
+        p2_1 = '"tool": "read_file", "path": "src/app.py", "offset": 1, "limit": 100}'
+        call2_1 = parse_tool_call(p2_1)
+        self.assertEqual(call2_1.name, "read_file")
+        self.assertEqual(call2_1.args["path"], "src/app.py")
+        self.assertEqual(call2_1.args["offset"], 1)
+        self.assertEqual(call2_1.args["limit"], 100)
 
-        # 4. Omitted `{` with nested arguments:
-        text5 = '"name": "read_file", "arguments": {"path": "src/main.rs"}}'
-        call5 = parse_tool_call(text5)
-        self.assertEqual(call5.name, "read_file")
-        self.assertEqual(call5.args["path"], "src/main.rs")
+        p2_2 = '"name": "bash", "command": "pytest"}'
+        call2_2 = parse_tool_call(p2_2)
+        self.assertEqual(call2_2.name, "bash")
+        self.assertEqual(call2_2.args["command"], "pytest")
 
-        text6 = 'name": "read_file", "arguments": {"path": "src/main.rs"}}'
-        call6 = parse_tool_call(text6)
-        self.assertEqual(call6.name, "read_file")
-        self.assertEqual(call6.args["path"], "src/main.rs")
+        # Pattern 3: Omitted brace and key name (direct colon with value)
+        p3_1 = '": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 1, "limit": 100}'
+        call3_1 = parse_tool_call(p3_1)
+        self.assertEqual(call3_1.name, "read_file")
+        self.assertEqual(call3_1.args["path"], "sklearn/impute/_iterative.py")
+        self.assertEqual(call3_1.args["offset"], 1)
+        self.assertEqual(call3_1.args["limit"], 100)
 
-        # 5. In markdown codeblock:
-        text7 = '```json\ntool": "bash", "command": "ls -la"}\n```'
-        call7 = parse_tool_call(text7)
-        self.assertEqual(call7.name, "bash")
-        self.assertEqual(call7.args["command"], "ls -la")
+        p3_2 = '": "search", "pattern": "initial_strategy", "path": "."}'
+        call3_2 = parse_tool_call(p3_2)
+        self.assertEqual(call3_2.name, "search")
+        self.assertEqual(call3_2.args["pattern"], "initial_strategy")
+        self.assertEqual(call3_2.args["path"], ".")
 
-        # 6. With leading conversational text:
-        text8 = 'Here is the tool call: : "read_file", "path": "src/main.rs"}'
-        call8 = parse_tool_call(text8)
-        self.assertEqual(call8.name, "read_file")
-        self.assertEqual(call8.args["path"], "src/main.rs")
+        p3_3 = ': "read_file", "path": "sklearn/impute/_iterative.py", "offset": 1, "limit": 100}'
+        call3_3 = parse_tool_call(p3_3)
+        self.assertEqual(call3_3.name, "read_file")
+        self.assertEqual(call3_3.args["path"], "sklearn/impute/_iterative.py")
+
+        # Pattern 4: Opening brace present, but key name omitted (`{":` or `{ ":`)
+        p4_1 = '{": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 10, "limit": 50}'
+        call4_1 = parse_tool_call(p4_1)
+        self.assertEqual(call4_1.name, "read_file")
+        self.assertEqual(call4_1.args["path"], "sklearn/impute/_iterative.py")
+        self.assertEqual(call4_1.args["offset"], 10)
+        self.assertEqual(call4_1.args["limit"], 50)
+
+        p4_2 = '{ ": "search", "pattern": "def _discover_files", "path": "pylint"}'
+        call4_2 = parse_tool_call(p4_2)
+        self.assertEqual(call4_2.name, "search")
+        self.assertEqual(call4_2.args["pattern"], "def _discover_files")
+        self.assertEqual(call4_2.args["path"], "pylint")
+
+        # Pattern 5: Preceding Chain-of-Thought / conversational reasoning
+        p5_1 = 'Now I will read the target file to inspect the function:\n": "read_file", "path": "a.py"}'
+        call5_1 = parse_tool_call(p5_1)
+        self.assertEqual(call5_1.name, "read_file")
+        self.assertEqual(call5_1.args["path"], "a.py")
+
+        p5_2 = 'Let me check git status:\ntool": "bash", "command": "git status"}'
+        call5_2 = parse_tool_call(p5_2)
+        self.assertEqual(call5_2.name, "bash")
+        self.assertEqual(call5_2.args["command"], "git status")
+
+        # Pattern 6: Inside markdown codeblock
+        p6_1 = '```json\ntool": "bash", "command": "git status"}\n```'
+        call6_1 = parse_tool_call(p6_1)
+        self.assertEqual(call6_1.name, "bash")
+        self.assertEqual(call6_1.args["command"], "git status")
+
+        # Direct clean_json_str checks
+        from agent_tool_parser import clean_json_str
+
+        self.assertEqual(
+            clean_json_str('tool": "bash", "command": "git diff"}'),
+            '{"tool": "bash", "command": "git diff"}',
+        )
+        self.assertEqual(
+            clean_json_str('": "read_file", "path": "a.py"}'),
+            '{"tool": "read_file", "path": "a.py"}',
+        )
+        self.assertEqual(
+            clean_json_str('{": "read_file", "path": "a.py"}'),
+            '{"tool": "read_file", "path": "a.py"}',
+        )
 
     def test_degenerate_empty_or_whitespace_tool_name_rejected(self):
         """Empty or whitespace-only tool name must be rejected."""

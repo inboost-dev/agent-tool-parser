@@ -21,6 +21,8 @@ if not _DISABLE_ACCEL:
             ToolError,
             ToolParser,
             clean_json_str,
+            extract_json_objects,
+            normalize_truncated_json_prefix,
             parse_tool_call,
             parse_tool_calls,
             safe_json_loads,
@@ -38,6 +40,7 @@ if not ACCELERATED:
         clean_json_str,
         clean_param_val,
         extract_json_objects,
+        normalize_truncated_json_prefix,
         safe_json_loads,
         strip_thinking,
     )
@@ -50,7 +53,7 @@ if not ACCELERATED:
         try_parse_tool_calls,
     )
 else:
-    from agent_tool_parser.cleaners import clean_param_val, extract_json_objects
+    from agent_tool_parser.cleaners import clean_param_val
 
 __version__ = "0.1.2"
 __all__ = [
@@ -61,6 +64,7 @@ __all__ = [
     "clean_json_str",
     "clean_param_val",
     "extract_json_objects",
+    "normalize_truncated_json_prefix",
     "parse_tool_call",
     "parse_tool_calls",
     "safe_json_loads",

@@ -137,6 +137,16 @@ fn clean_json_str(s: &str) -> String {
 }
 
 #[pyfunction]
+fn normalize_truncated_json_prefix(s: &str) -> String {
+    cleaners::normalize_truncated_json_prefix(s).into_owned()
+}
+
+#[pyfunction]
+fn extract_json_objects(text: &str) -> Vec<String> {
+    cleaners::extract_json_objects(text)
+}
+
+#[pyfunction]
 fn strip_thinking(text: &str) -> String {
     cleaners::strip_thinking(text)
 }
@@ -246,6 +256,8 @@ fn _accelerated(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(try_parse_tool_calls, m)?)?;
     m.add_function(wrap_pyfunction!(safe_json_loads, m)?)?;
     m.add_function(wrap_pyfunction!(clean_json_str, m)?)?;
+    m.add_function(wrap_pyfunction!(normalize_truncated_json_prefix, m)?)?;
+    m.add_function(wrap_pyfunction!(extract_json_objects, m)?)?;
     m.add_function(wrap_pyfunction!(strip_thinking, m)?)?;
     Ok(())
 }

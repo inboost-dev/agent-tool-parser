@@ -9,7 +9,10 @@ pub mod cleaners;
 pub mod models;
 pub mod parser;
 
-pub use cleaners::{clean_param_val, extract_json_objects, safe_json_loads, strip_thinking};
+pub use cleaners::{
+    clean_json_str, clean_param_val, extract_json_objects, normalize_truncated_json_prefix,
+    safe_json_loads, strip_thinking,
+};
 pub use models::{ToolCall, ToolError, ToolParserConfig};
 pub use parser::{
     parse_tool_call, parse_tool_calls, try_parse_tool_call, try_parse_tool_calls, ToolParser,

@@ -9,7 +9,7 @@
 // and adversarial prompt structures. Authored under the MIT License.
 
 use agent_tool_parser_core::{
-    parse_tool_call, parse_tool_calls, try_parse_tool_call, try_parse_tool_calls,
+    clean_json_str, parse_tool_call, parse_tool_calls, try_parse_tool_call, try_parse_tool_calls,
 };
 use serde_json::json;
 use std::time::Instant;
@@ -210,51 +210,101 @@ fn test_degenerate_single_quotes_with_inner_double_quotes() {
 
 #[test]
 fn test_headless_json_minimax_prefix_omissions() {
-    // 1. Omitted `{"` or `{` with key name `tool"`:
-    let text1 = r#"tool": "bash", "command": "ls -la"}"#;
-    let call1 = parse_tool_call(text1).unwrap();
-    assert_eq!(call1.name, "bash");
-    assert_eq!(call1.args["command"], "ls -la");
+    // Pattern 1: Omitted opening curly brace before key (tool/name/action)
+    let p1_1 = r#"tool": "bash", "command": "git diff"}"#;
+    let call1_1 = parse_tool_call(p1_1).unwrap();
+    assert_eq!(call1_1.name, "bash");
+    assert_eq!(call1_1.args["command"], "git diff");
 
-    // 2. Omitted `{"tool`:
-    let text2 = r#": "read_file", "path": "src/main.rs"}"#;
-    let call2 = parse_tool_call(text2).unwrap();
-    assert_eq!(call2.name, "read_file");
-    assert_eq!(call2.args["path"], "src/main.rs");
+    let p1_2 = r#"name": "bash", "input": {"command": "ls"}}"#;
+    let call1_2 = parse_tool_call(p1_2).unwrap();
+    assert_eq!(call1_2.name, "bash");
+    assert_eq!(call1_2.args["command"], "ls");
 
-    let text3 = r#"": "read_file", "path": "src/main.rs"}"#;
-    let call3 = parse_tool_call(text3).unwrap();
-    assert_eq!(call3.name, "read_file");
-    assert_eq!(call3.args["path"], "src/main.rs");
+    let p1_3 = r#"action": "read_file", "path": "main.py"}"#;
+    let call1_3 = parse_tool_call(p1_3).unwrap();
+    assert_eq!(call1_3.name, "read_file");
+    assert_eq!(call1_3.args["path"], "main.py");
 
-    // 3. Omitted `{` with quoted key:
-    let text4 = r#""tool": "bash", "command": "ls -la"}"#;
-    let call4 = parse_tool_call(text4).unwrap();
-    assert_eq!(call4.name, "bash");
-    assert_eq!(call4.args["command"], "ls -la");
+    // Pattern 2: Omitted brace and opening quote
+    let p2_1 = r#""tool": "read_file", "path": "src/app.py", "offset": 1, "limit": 100}"#;
+    let call2_1 = parse_tool_call(p2_1).unwrap();
+    assert_eq!(call2_1.name, "read_file");
+    assert_eq!(call2_1.args["path"], "src/app.py");
+    assert_eq!(call2_1.args["offset"], 1);
+    assert_eq!(call2_1.args["limit"], 100);
 
-    // 4. Omitted `{` with nested arguments:
-    let text5 = r#""name": "read_file", "arguments": {"path": "src/main.rs"}}"#;
-    let call5 = parse_tool_call(text5).unwrap();
-    assert_eq!(call5.name, "read_file");
-    assert_eq!(call5.args["path"], "src/main.rs");
+    let p2_2 = r#""name": "bash", "command": "pytest"}"#;
+    let call2_2 = parse_tool_call(p2_2).unwrap();
+    assert_eq!(call2_2.name, "bash");
+    assert_eq!(call2_2.args["command"], "pytest");
 
-    let text6 = r#"name": "read_file", "arguments": {"path": "src/main.rs"}}"#;
-    let call6 = parse_tool_call(text6).unwrap();
-    assert_eq!(call6.name, "read_file");
-    assert_eq!(call6.args["path"], "src/main.rs");
+    // Pattern 3: Omitted brace and key name (direct colon with value)
+    let p3_1 =
+        r#"": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 1, "limit": 100}"#;
+    let call3_1 = parse_tool_call(p3_1).unwrap();
+    assert_eq!(call3_1.name, "read_file");
+    assert_eq!(call3_1.args["path"], "sklearn/impute/_iterative.py");
+    assert_eq!(call3_1.args["offset"], 1);
+    assert_eq!(call3_1.args["limit"], 100);
 
-    // 5. In markdown codeblock:
-    let text7 = "```json\ntool\": \"bash\", \"command\": \"ls -la\"}\n```";
-    let call7 = parse_tool_call(text7).unwrap();
-    assert_eq!(call7.name, "bash");
-    assert_eq!(call7.args["command"], "ls -la");
+    let p3_2 = r#"": "search", "pattern": "initial_strategy", "path": "."}"#;
+    let call3_2 = parse_tool_call(p3_2).unwrap();
+    assert_eq!(call3_2.name, "search");
+    assert_eq!(call3_2.args["pattern"], "initial_strategy");
+    assert_eq!(call3_2.args["path"], ".");
 
-    // 6. With leading conversational text:
-    let text8 = "Here is the tool call: : \"read_file\", \"path\": \"src/main.rs\"}";
-    let call8 = parse_tool_call(text8).unwrap();
-    assert_eq!(call8.name, "read_file");
-    assert_eq!(call8.args["path"], "src/main.rs");
+    let p3_3 =
+        r#": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 1, "limit": 100}"#;
+    let call3_3 = parse_tool_call(p3_3).unwrap();
+    assert_eq!(call3_3.name, "read_file");
+    assert_eq!(call3_3.args["path"], "sklearn/impute/_iterative.py");
+
+    // Pattern 4: Opening brace present, but key name omitted (`{":` or `{ ":`)
+    let p4_1 =
+        r#"{": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 10, "limit": 50}"#;
+    let call4_1 = parse_tool_call(p4_1).unwrap();
+    assert_eq!(call4_1.name, "read_file");
+    assert_eq!(call4_1.args["path"], "sklearn/impute/_iterative.py");
+    assert_eq!(call4_1.args["offset"], 10);
+    assert_eq!(call4_1.args["limit"], 50);
+
+    let p4_2 = r#"{ ": "search", "pattern": "def _discover_files", "path": "pylint"}"#;
+    let call4_2 = parse_tool_call(p4_2).unwrap();
+    assert_eq!(call4_2.name, "search");
+    assert_eq!(call4_2.args["pattern"], "def _discover_files");
+    assert_eq!(call4_2.args["path"], "pylint");
+
+    // Pattern 5: Preceding Chain-of-Thought / conversational reasoning
+    let p5_1 = "Now I will read the target file to inspect the function:\n\": \"read_file\", \"path\": \"a.py\"}";
+    let call5_1 = parse_tool_call(p5_1).unwrap();
+    assert_eq!(call5_1.name, "read_file");
+    assert_eq!(call5_1.args["path"], "a.py");
+
+    let p5_2 = "Let me check git status:\ntool\": \"bash\", \"command\": \"git status\"}";
+    let call5_2 = parse_tool_call(p5_2).unwrap();
+    assert_eq!(call5_2.name, "bash");
+    assert_eq!(call5_2.args["command"], "git status");
+
+    // Pattern 6: Inside markdown codeblock
+    let p6_1 = "```json\ntool\": \"bash\", \"command\": \"git status\"}\n```";
+    let call6_1 = parse_tool_call(p6_1).unwrap();
+    assert_eq!(call6_1.name, "bash");
+    assert_eq!(call6_1.args["command"], "git status");
+
+    // Direct cleaner repairs
+    assert_eq!(
+        clean_json_str(r#"tool": "bash", "command": "git diff"}"#),
+        r#"{"tool": "bash", "command": "git diff"}"#
+    );
+    assert_eq!(
+        clean_json_str(r#"": "read_file", "path": "a.py"}"#),
+        r#"{"tool": "read_file", "path": "a.py"}"#
+    );
+    assert_eq!(
+        clean_json_str(r#"{": "read_file", "path": "a.py"}"#),
+        r#"{"tool": "read_file", "path": "a.py"}"#
+    );
 }
 
 #[test]

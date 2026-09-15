@@ -3,6 +3,7 @@
 
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::borrow::Cow;
 
 static THINK_OPEN_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)<[｜|]?(?:think|thought|reasoning)[｜|]?>").unwrap());
@@ -42,6 +43,53 @@ static TRAILING_COMMA_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r",\s*([}\]])").
 static PY_TRUE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bTrue\b").unwrap());
 static PY_FALSE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bFalse\b").unwrap());
 static PY_NONE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bNone\b").unwrap());
+
+static BRACE_COLON_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\{\s*\"(?::|\s*:)\s*"#).unwrap());
+static PREFIX_COLON_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\"(?::|\s*:)\s*"#).unwrap());
+static RAW_COLON_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*:\s*"#).unwrap());
+
+/// Normalizes truncated JSON prefixes (e.g. from LLMs dropping `{"` or `{"tool`).
+///
+/// Returns `Cow::Borrowed` if no normalization is needed (zero-copy / zero allocation).
+pub fn normalize_truncated_json_prefix<'a>(s: &'a str) -> Cow<'a, str> {
+    let trimmed = s.trim_start();
+    if trimmed.starts_with("tool\":")
+        || trimmed.starts_with("name\":")
+        || trimmed.starts_with("action\":")
+    {
+        let offset = s.len() - trimmed.len();
+        Cow::Owned(format!("{}{{\"{}", &s[..offset], trimmed))
+    } else if trimmed.starts_with("\"tool\":")
+        || trimmed.starts_with("\"name\":")
+        || trimmed.starts_with("\"action\":")
+    {
+        let offset = s.len() - trimmed.len();
+        Cow::Owned(format!("{}{{{}", &s[..offset], trimmed))
+    } else if let Some(m) = BRACE_COLON_RE.find(trimmed) {
+        let offset = s.len() - trimmed.len();
+        Cow::Owned(format!(
+            "{}{{\"tool\": {}",
+            &s[..offset],
+            &trimmed[m.end()..]
+        ))
+    } else if let Some(m) = PREFIX_COLON_RE.find(trimmed) {
+        let offset = s.len() - trimmed.len();
+        Cow::Owned(format!(
+            "{}{{\"tool\": {}",
+            &s[..offset],
+            &trimmed[m.end()..]
+        ))
+    } else if let Some(m) = RAW_COLON_RE.find(trimmed) {
+        let offset = s.len() - trimmed.len();
+        Cow::Owned(format!(
+            "{}{{\"tool\": {}",
+            &s[..offset],
+            &trimmed[m.end()..]
+        ))
+    } else {
+        Cow::Borrowed(s)
+    }
+}
 
 /// Strips internal reasoning / thinking tags (<think>...</think>).
 pub fn strip_thinking(text: &str) -> String {
@@ -121,6 +169,8 @@ pub fn clean_param_val(val: &str, is_code_param: bool) -> String {
 
 /// Applies heuristic repairs to malformed JSON strings.
 pub fn clean_json_str(s: &str) -> String {
+    let norm = normalize_truncated_json_prefix(s);
+    let s = norm.as_ref();
     let mut cleaned = if s.contains('\'') {
         if !s.contains('"') {
             s.replace('\'', "\"")
@@ -211,6 +261,8 @@ pub fn safe_json_loads(s: &str) -> Option<serde_json::Value> {
 
 /// Extracts all balanced JSON object candidates from arbitrary text using bracket-depth tracking.
 pub fn extract_json_objects(text: &str) -> Vec<String> {
+    let norm = normalize_truncated_json_prefix(text);
+    let text = norm.as_ref();
     if !text.contains('{') {
         return Vec::new();
     }

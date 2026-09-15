@@ -254,6 +254,19 @@ class TestDualEngineParity(unittest.TestCase):
             '<invoke name="bash"><parameter name="cmd">\x1b[31mhello\x1b[0m</parameter></invoke>',
             '{"tool": "bash", "command": "echo hello\x00world"}',
             '\ufeff\u200b{"tool": "bash", "command": "ls"}\u200d',
+            # MiniMax truncated JSON prefixes
+            'tool": "bash", "command": "git diff"}',
+            'name": "bash", "input": {"command": "ls"}}',
+            'action": "read_file", "path": "main.py"}',
+            '"tool": "read_file", "path": "src/app.py", "offset": 1, "limit": 100}',
+            '"name": "bash", "command": "pytest"}',
+            '": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 1, "limit": 100}',
+            '": "search", "pattern": "initial_strategy", "path": "."}',
+            '{": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 10, "limit": 50}',
+            '{ ": "search", "pattern": "def _discover_files", "path": "pylint"}',
+            'Now I will read the target file to inspect the function:\n": "read_file", "path": "a.py"}',
+            'Let me check git status:\ntool": "bash", "command": "git status"}',
+            '```json\ntool": "bash", "command": "git status"}\n```',
         ]
         for i, sample in enumerate(samples):
             self._check_differential(sample, f"DegenerateSample[{i}]")
@@ -320,6 +333,11 @@ class TestDualEngineParity(unittest.TestCase):
             '{"a": True, "b": False, "c": None}',
             '{"valid": 123}',
             "not a json",
+            'tool": "bash", "command": "git diff"}',
+            '"name": "bash", "command": "pytest"}',
+            '": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 1, "limit": 100}',
+            '{": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 10, "limit": 50}',
+            '{ ": "search", "pattern": "def _discover_files", "path": "pylint"}',
         ]
         for inp in json_samples:
             acc_cj = acc.clean_json_str(inp)
@@ -328,6 +346,27 @@ class TestDualEngineParity(unittest.TestCase):
                 self.assertEqual(json.loads(acc_cj), json.loads(py_cj))
             except Exception:
                 self.assertEqual(acc_cj, py_cj)
+
+    def test_parity_normalize_truncated_json_prefix(self):
+        """Parity for normalize_truncated_json_prefix."""
+        samples = [
+            'tool": "bash", "command": "git diff"}',
+            'name": "bash", "input": {"command": "ls"}}',
+            'action": "read_file", "path": "main.py"}',
+            '"tool": "read_file", "path": "src/app.py", "offset": 1, "limit": 100}',
+            '"name": "bash", "command": "pytest"}',
+            '": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 1, "limit": 100}',
+            '": "search", "pattern": "initial_strategy", "path": "."}',
+            '{": "read_file", "path": "sklearn/impute/_iterative.py", "offset": 10, "limit": 50}',
+            '{ ": "search", "pattern": "def _discover_files", "path": "pylint"}',
+            ': "read_file", "path": "a.py"}',
+            "normal string",
+            '{"tool": "bash"}',
+        ]
+        for inp in samples:
+            acc_norm = acc.normalize_truncated_json_prefix(inp)
+            py_norm = py_cleaners.normalize_truncated_json_prefix(inp)
+            self.assertEqual(acc_norm, py_norm)
 
 
 if __name__ == "__main__":

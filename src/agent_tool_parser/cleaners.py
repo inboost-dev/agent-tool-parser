@@ -50,6 +50,28 @@ _PY_TRUE_RE = re.compile(r"\bTrue\b")
 _PY_FALSE_RE = re.compile(r"\bFalse\b")
 _PY_NONE_RE = re.compile(r"\bNone\b")
 
+_BRACE_COLON_RE = re.compile(r"^{\s*\"(?::|\s*:)\s*")
+_PREFIX_COLON_RE = re.compile(r"^\s*\"(?::|\s*:)\s*")
+_RAW_COLON_RE = re.compile(r"^\s*:\s*")
+
+
+def normalize_truncated_json_prefix(s: str) -> str:
+    """Normalizes truncated JSON prefixes (e.g. from LLMs dropping `{"` or `{"tool`)."""
+    trimmed = s.lstrip()
+    offset = len(s) - len(trimmed)
+    prefix = s[:offset]
+    if trimmed.startswith(('tool":', 'name":', 'action":')):
+        return prefix + '{"' + trimmed
+    elif trimmed.startswith(('"tool":', '"name":', '"action":')):
+        return prefix + "{" + trimmed
+    elif m := _BRACE_COLON_RE.match(trimmed):
+        return prefix + '{"tool": ' + trimmed[m.end() :]
+    elif m := _PREFIX_COLON_RE.match(trimmed):
+        return prefix + '{"tool": ' + trimmed[m.end() :]
+    elif m := _RAW_COLON_RE.match(trimmed):
+        return prefix + '{"tool": ' + trimmed[m.end() :]
+    return s
+
 
 def strip_thinking(text: str) -> str:
     """Strips internal reasoning / thinking tags (<think>...</think>)."""
@@ -121,7 +143,9 @@ def clean_json_str(s: str) -> str:
     - Replaces single-quoted keys and string values with double quotes.
     - Strips trailing commas before closing braces/brackets.
     - Normalizes Python literals (True, False, None) to JSON (true, false, null).
+    - Normalizes truncated JSON prefixes (e.g. tool": or ":).
     """
+    s = normalize_truncated_json_prefix(s)
     if "'" in s:
         if '"' not in s:
             s = s.replace("'", '"')
@@ -212,6 +236,7 @@ def extract_json_objects(text: str) -> list[str]:
     truncated objects (including unclosed arrays and nested objects) if the LLM stream
     was cut off mid-generation.
     """
+    text = normalize_truncated_json_prefix(text)
     if "{" not in text:
         return []
 
