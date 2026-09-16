@@ -199,46 +199,48 @@ jobs:
           git tag -f "${TAG}" HEAD
           git push -f origin "${TAG}"
 
-          NOTES="### 🌙 Automated Dev / Nightly Pre-Release (Rolling)
+          cat << EOF | sed 's/^          //' > release-notes.md
+          ### 🌙 Automated Dev / Nightly Pre-Release (Rolling)
 
-This is an automated rolling pre-release built directly from branch [\`dev\`](https://github.com/${{ github.repository }}/tree/dev).
-- **Commit**: [\`${SHORT_SHA}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-- **Last Commit Date**: \`${COMMIT_DATE}\`
-- **Updated at**: \`$(date -u +'%Y-%m-%d %H:%M:%S UTC')\`
+          This is an automated rolling pre-release built directly from branch [`dev`](https://github.com/${{ github.repository }}/tree/dev).
+          - **Commit**: [`${SHORT_SHA}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - **Last Commit Date**: `${COMMIT_DATE}`
+          - **Updated at**: `$(date -u +'%Y-%m-%d %H:%M:%S UTC')`
 
----
+          ---
 
-#### 📦 Download & Install (Zero Compilation Needed)
+          #### 📦 Download & Install (Zero Compilation Needed)
 
-##### Python Wheels
-Download and install directly without Rust/C compiler:
-\`\`\`bash
-# Download all wheels bundle
-curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-wheels.zip
-unzip agent-tool-parser-wheels.zip && pip install *.whl
-\`\`\`
+          ##### Python Wheels
+          Download and install directly without Rust/C compiler:
+          ```bash
+          # Download all wheels bundle
+          curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-wheels.zip
+          unzip agent-tool-parser-wheels.zip && pip install *.whl
+          ```
 
-##### C / C++ Dynamic Libraries & Headers
-\`\`\`bash
-# Linux x86_64
-curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-c-linux-x86_64.tar.gz
-tar -xzf agent-tool-parser-c-linux-x86_64.tar.gz -C ./libs/
+          ##### C / C++ Dynamic Libraries & Headers
+          ```bash
+          # Linux x86_64
+          curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-c-linux-x86_64.tar.gz
+          tar -xzf agent-tool-parser-c-linux-x86_64.tar.gz -C ./libs/
 
-# macOS Universal
-curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-c-macos-universal.tar.gz
-tar -xzf agent-tool-parser-c-macos-universal.tar.gz -C ./libs/
-\`\`\`
+          # macOS Universal
+          curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-c-macos-universal.tar.gz
+          tar -xzf agent-tool-parser-c-macos-universal.tar.gz -C ./libs/
+          ```
 
----
-*Note: This release is automatically overwritten on every new push to \`dev\`.*"
+          ---
+          *Note: This release is automatically overwritten on every new push to `dev`.*
+          EOF
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             echo "Updating existing ${TAG} release..."
-            gh release edit "${TAG}" --title "Dev / Nightly Build (rolling)" --notes "${NOTES}" --prerelease
+            gh release edit "${TAG}" --title "Dev / Nightly Build (rolling)" --notes-file release-notes.md --prerelease
             gh release upload "${TAG}" release-assets/* --clobber
           else
             echo "Creating new ${TAG} release..."
-            gh release create "${TAG}" release-assets/* --title "Dev / Nightly Build (rolling)" --notes "${NOTES}" --prerelease
+            gh release create "${TAG}" release-assets/* --title "Dev / Nightly Build (rolling)" --notes-file release-notes.md --prerelease
           fi
 
       - name: Cleanup intermediate workflow artifacts
