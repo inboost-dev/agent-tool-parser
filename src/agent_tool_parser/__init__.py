@@ -55,7 +55,7 @@ if not ACCELERATED:
 else:
     from agent_tool_parser.cleaners import clean_param_val
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __all__ = [
     "ACCELERATED",
     "ToolCall",
