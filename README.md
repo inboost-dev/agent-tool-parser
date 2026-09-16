@@ -163,6 +163,19 @@ pip install "agent-tool-parser[repair]"   # installs json-repair for advanced co
 go get github.com/inboost-dev/agent-tool-parser/bindings/go/agenttoolparser
 ```
 
+### Dev & Nightly Builds (Pre-compiled for downstream dependencies)
+Downstream projects tracking active development on the `dev` branch can download pre-compiled native wheels and C libraries directly without requiring local Rust toolchains or recompiling from source:
+
+```bash
+# Python: download pre-built wheels bundle from rolling nightly release
+curl -LO https://github.com/inboost-dev/agent-tool-parser/releases/download/nightly/agent-tool-parser-wheels.zip
+unzip agent-tool-parser-wheels.zip && pip install *.whl
+
+# C/C++: download pre-compiled shared library and headers
+curl -LO https://github.com/inboost-dev/agent-tool-parser/releases/download/nightly/agent-tool-parser-c-linux-x86_64.tar.gz
+tar -xzf agent-tool-parser-c-linux-x86_64.tar.gz -C ./libs/
+```
+
 ---
 
 ## Quickstart

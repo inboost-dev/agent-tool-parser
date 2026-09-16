@@ -1,19 +1,19 @@
-name: Release
+name: Nightly Dev Build
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [ dev ]
+  schedule:
+    - cron: "0 2 * * *"
   workflow_dispatch:
-    inputs:
-      tag_name:
-        description: "Release tag (e.g. v0.1.0)"
-        required: false
-        default: ""
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
-  id-token: write
+  actions: write
 
 jobs:
   build-python:
@@ -154,13 +154,18 @@ jobs:
           pip install -e .
           python -m unittest discover -s tests
 
-  github-release:
-    name: Create GitHub Release
+  publish-nightly:
+    name: Publish Rolling Nightly Dev Release
     needs: [build-python, build-c-binaries, test-and-verify]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Create release assets directory
         run: mkdir -p release-assets
@@ -174,102 +179,70 @@ jobs:
         run: |
           find downloaded-artifacts -type f -exec cp {} release-assets/ \;
           cd release-assets
+          # Bundle all wheels into a single convenience zip
+          if ls *.whl 1> /dev/null 2>&1; then
+            zip -j agent-tool-parser-wheels.zip *.whl
+          fi
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
-          files: release-assets/*
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-
-  publish-pypi:
-    name: Publish to PyPI
-    needs: [build-python, test-and-verify]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all Python wheels
-        uses: actions/download-artifact@v4
-        with:
-          pattern: python-dist-*
-          path: dist
-          merge-multiple: true
-
-      - name: Publish package to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/
-          skip-existing: true
-        continue-on-error: true
-
-  publish-crates:
-    name: Publish Rust Core Crate
-    needs: [build-python, test-and-verify]
-    runs-on: ubuntu-latest
-    env:
-      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Publish to crates.io
-        if: env.CARGO_REGISTRY_TOKEN != ''
-        run: cargo publish -p agent-tool-parser-core
-        continue-on-error: true
-
-  publish-go:
-    name: Publish Go Module & Register on Proxy
-    needs: [test-and-verify]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create Subdirectory Go Tag & Ping Proxy
+      - name: Update Rolling Nightly Tag & Pre-Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RAW_TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
-          if [[ -z "$RAW_TAG" ]]; then
-            echo "No tag specified, skipping Go tag."
-            exit 0
-          fi
-          if [[ "$RAW_TAG" != v* ]]; then
-            TAG="v${RAW_TAG}"
-          else
-            TAG="${RAW_TAG}"
-          fi
-          GO_TAG="bindings/go/agenttoolparser/${TAG}"
+          TAG="nightly"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_DATE=$(git log -1 --format=%cd --date=iso-strict)
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git rev-parse "${GO_TAG}" >/dev/null 2>&1; then
-            echo "Creating tag ${GO_TAG}..."
-            git tag -a "${GO_TAG}" -m "Release Go bindings ${TAG}"
-            git push origin "${GO_TAG}" || true
-          else
-            echo "Tag ${GO_TAG} already exists."
-          fi
-          echo "Pinging proxy.golang.org to index Go module..."
-          sleep 2
-          curl -s "https://proxy.golang.org/github.com/inboost-dev/agent-tool-parser/bindings/go/agenttoolparser/@v/${TAG}.info" || true
+          git tag -f "${TAG}" HEAD
+          git push -f origin "${TAG}"
 
-  cleanup-artifacts:
-    name: Cleanup Intermediate Workflow Artifacts
-    needs: [github-release, publish-pypi, build-c-binaries]
-    runs-on: ubuntu-latest
-    if: always()
-    permissions:
-      actions: write
-    steps:
+          NOTES="### 🌙 Automated Dev / Nightly Pre-Release (Rolling)
+
+This is an automated rolling pre-release built directly from branch [\`dev\`](https://github.com/${{ github.repository }}/tree/dev).
+- **Commit**: [\`${SHORT_SHA}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+- **Last Commit Date**: \`${COMMIT_DATE}\`
+- **Updated at**: \`$(date -u +'%Y-%m-%d %H:%M:%S UTC')\`
+
+---
+
+#### 📦 Download & Install (Zero Compilation Needed)
+
+##### Python Wheels
+Download and install directly without Rust/C compiler:
+\`\`\`bash
+# Download all wheels bundle
+curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-wheels.zip
+unzip agent-tool-parser-wheels.zip && pip install *.whl
+\`\`\`
+
+##### C / C++ Dynamic Libraries & Headers
+\`\`\`bash
+# Linux x86_64
+curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-c-linux-x86_64.tar.gz
+tar -xzf agent-tool-parser-c-linux-x86_64.tar.gz -C ./libs/
+
+# macOS Universal
+curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-c-macos-universal.tar.gz
+tar -xzf agent-tool-parser-c-macos-universal.tar.gz -C ./libs/
+\`\`\`
+
+---
+*Note: This release is automatically overwritten on every new push to \`dev\`.*"
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Updating existing ${TAG} release..."
+            gh release edit "${TAG}" --title "Dev / Nightly Build (rolling)" --notes "${NOTES}" --prerelease
+            gh release upload "${TAG}" release-assets/* --clobber
+          else
+            echo "Creating new ${TAG} release..."
+            gh release create "${TAG}" release-assets/* --title "Dev / Nightly Build (rolling)" --notes "${NOTES}" --prerelease
+          fi
+
       - name: Cleanup intermediate workflow artifacts
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
