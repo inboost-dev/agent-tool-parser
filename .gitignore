@@ -23,3 +23,8 @@ target/
 # Release and distribution packaging
 c-dist/
 release-assets/
+
+# Proprietary knowledge encrypted in abrain
+knowledge/
+.knowledge
+
