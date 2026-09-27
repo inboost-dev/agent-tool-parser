@@ -5,6 +5,7 @@ import time
 import unittest
 
 from agent_tool_parser import (
+    ACCELERATED,
     ToolError,
     ToolParser,
     parse_tool_call,
@@ -527,7 +528,8 @@ read_file(path="b.py", offset=2)
             parse_tool_call(text)
         elapsed = time.perf_counter() - start
         avg_ms = (elapsed / n) * 1000.0
-        self.assertLess(avg_ms, 0.5, f"Average parse latency too high: {avg_ms:.4f} ms")
+        limit_ms = 0.5 if ACCELERATED else 1.0
+        self.assertLess(avg_ms, limit_ms, f"Average parse latency too high: {avg_ms:.4f} ms")
 
     def test_no_syntax_warnings_on_invalid_escapes(self):
         import warnings

@@ -14,7 +14,7 @@ pub fn canonical_sort_keys(val: &Value) -> Value {
             for (k, v) in map {
                 sorted.insert(k.clone(), canonical_sort_keys(v));
             }
-            Value::Object(serde_json::Map::from_iter(sorted.into_iter()))
+            Value::Object(serde_json::Map::from_iter(sorted))
         }
         Value::Array(arr) => Value::Array(arr.iter().map(canonical_sort_keys).collect()),
         _ => val.clone(),
@@ -128,17 +128,11 @@ mod tests {
         let canon = canonicalize_tool_calls(calls);
         assert_eq!(canon.len(), 2);
         // edit_file comes before write_file alphabetically
-        assert_eq!(
-            canon[0]["function"]["name"].as_str().unwrap(),
-            "edit_file"
-        );
+        assert_eq!(canon[0]["function"]["name"].as_str().unwrap(), "edit_file");
         assert_eq!(
             canon[0]["function"]["arguments"].as_str().unwrap(),
             r#"{"a":2,"z":1}"#
         );
-        assert_eq!(
-            canon[1]["function"]["name"].as_str().unwrap(),
-            "write_file"
-        );
+        assert_eq!(canon[1]["function"]["name"].as_str().unwrap(), "write_file");
     }
 }

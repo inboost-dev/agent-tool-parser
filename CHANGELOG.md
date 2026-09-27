@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased]
+
+### Added
+- **KV-Cache Canonicalization & Turn Buffer Normalization**:
+  - Added deterministic JSON key sorting and compact serialization (`canonical_json_dumps`, `canonical_sort_keys`) to guarantee bit-level prefix invariance for vLLM, SGLang, and multi-turn agent KV caching.
+  - Added argument string canonicalization (`canonicalize_arguments_string`) for normalizing raw JSON arguments into canonical compact JSON.
+  - Added tool call array normalization and stable sorting (`canonicalize_tool_calls`), ensuring multi-tool calling responses are stably sorted by function name and call ID.
+  - Added helper methods on `ToolCall`:
+    - `to_canonical_json()`: Serializes tool arguments into a deterministic, sorted-key JSON string.
+    - `to_openai_tool_call(call_id=None, canonical=True)`: Converts `ToolCall` directly into standard OpenAI `tool_call` schema format.
+  - Full cross-runtime parity implemented and verified across Rust Core (`agent-tool-parser-core`), C ABI (`agent-tool-parser-c`), Go (`bindings/go/agenttoolparser`), PyO3 Native Acceleration (`agent-tool-parser-py`), WebAssembly (`agent-tool-parser-wasm`), and pure-Python reference fallback (`src/agent_tool_parser/canonical.py`).
 
 ## [0.1.3] - 2026-09-16
 

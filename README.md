@@ -146,6 +146,20 @@ async def handle_parallel_generation(model_output: str):
     return await asyncio.gather(*tasks, return_exceptions=True)
 ```
 
+### Pattern 5: KV-Cache Invariance & Turn Buffer Canonicalization
+In multi-turn agent loops running on vLLM or SGLang, permuted JSON argument keys (e.g. `{"b": 2, "a": 1}` vs `{"a": 1, "b": 2}`) invalidate prefix KV-caches and trigger expensive prompt recomputation. Canonicalizing tool calls ensures bit-level prefix invariance:
+
+```python
+from agent_tool_parser import canonicalize_tool_calls, parse_tool_call
+
+# 1. Convert parsed ToolCall directly into canonical OpenAI format
+call = parse_tool_call(model_raw_output)
+openai_tool_call = call.to_openai_tool_call()  # Deterministic sorted keys
+
+# 2. Canonicalize an entire conversation turn buffer before dispatching to inference
+messages[-1]["tool_calls"] = canonicalize_tool_calls(messages[-1]["tool_calls"])
+```
+
 ---
 
 ## Installation
@@ -279,7 +293,7 @@ agent-tool-parser/
 
 ### Engine Dispatch & Synchronization
 
-- **Parity Guarantee**: Both the pure-Python and Rust core engines pass the exact same validation suite (104 Python unit tests, 58 Rust unit/integration/benchmark tests, and 240+ differential parity assertions) covering all supported formats, error handling, parameter aliases, and degenerate/adversarial input texts.
+- **Parity Guarantee**: Both the pure-Python and Rust core engines pass the exact same validation suite (114 Python unit tests, 65 Rust unit/integration/benchmark tests, and 240+ differential parity assertions) covering all supported formats, error handling, parameter aliases, and degenerate/adversarial input texts.
 - **Zero-Compile Fallback**: If the compiled native extension is not present (or when `AGENT_TOOL_PARSER_NO_EXT=1` is set in the environment), the package operates in pure Python with zero external dependencies.
 - **Compiled Acceleration**: When the compiled extension is available, parsing execution occurs entirely in compiled native code with sub-millisecond execution times.
 
@@ -326,6 +340,28 @@ Standalone utility for resilient JSON decoding. Resolves trailing commas, single
 
 ---
 
+### KV-Cache Canonicalization Utilities
+
+#### `canonicalize_tool_calls(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]`
+Recursively sorts argument keys and performs stable sorting of tool calls by function name and call ID for multi-turn KV-cache preservation.
+
+#### `canonical_json_dumps(obj: Any) -> str`
+Serializes any dictionary, list, or primitive into a deterministic JSON string with alphabetically sorted keys and compact whitespace (`separators=(',', ':')`).
+
+#### `canonical_sort_keys(obj: Any) -> Any`
+Recursively reorders dictionary keys alphabetically while preserving original list order.
+
+#### `canonicalize_arguments_string(args_str: str) -> str`
+Parses and re-serializes a raw JSON argument string into compact, key-sorted canonical form.
+
+#### `ToolCall.to_canonical_json() -> str`
+Serializes `call.args` directly into a canonical JSON string with sorted keys.
+
+#### `ToolCall.to_openai_tool_call(call_id: Optional[str] = None, canonical: bool = True) -> dict[str, Any]`
+Converts the `ToolCall` instance into an OpenAI-compatible `{"id": ..., "type": "function", "function": {"name": ..., "arguments": ...}}` dictionary.
+
+---
+
 ### Object-Oriented Interface: `ToolParser`
 
 The `ToolParser` class allows setting persistent validation rules, allowed tool sets, and parameter mappings across calls:
@@ -362,9 +398,9 @@ Measurements conducted on Python 3.12 (AMD EPYC, single execution thread):
 
 All pull requests and commits to `main` are continuously validated across runtimes and target architectures in GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
 
-- **Python Multi-Version Matrix**: Python 3.9, 3.10, 3.11, 3.12, and 3.13 running `ruff`, `mypy`, and the complete 104-test suite under pure-Python fallback (`AGENT_TOOL_PARSER_NO_EXT=1`).
+- **Python Multi-Version Matrix**: Python 3.9, 3.10, 3.11, 3.12, and 3.13 running `ruff`, `mypy`, and the complete 114-test suite under pure-Python fallback (`AGENT_TOOL_PARSER_NO_EXT=1`).
 - **Rust Core & Multi-Language Bindings**:
-  - Rust stable toolchain: `cargo fmt`, `cargo clippy -D warnings`, and 58 unit, integration, and benchmark tests.
+  - Rust stable toolchain: `cargo fmt`, `cargo clippy -D warnings`, and 65 unit, integration, and benchmark tests.
   - C-ABI shared library compilation (`libagent_tool_parser_c.so`) and C unit tests.
   - Native Go binding integration tests (`go test -v ./bindings/go/...`).
   - WebAssembly compilation target verification (`wasm32-unknown-unknown` release build).

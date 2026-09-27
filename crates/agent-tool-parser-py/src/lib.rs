@@ -187,12 +187,9 @@ fn canonicalize_arguments_string(s: &str) -> String {
 }
 
 #[pyfunction]
-fn canonical_json_dumps<'py>(
-    _py: Python<'py>,
-    obj: Bound<'py, PyAny>,
-) -> PyResult<String> {
-    let val: serde_json::Value = pythonize::depythonize(&obj)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+fn canonical_json_dumps<'py>(_py: Python<'py>, obj: Bound<'py, PyAny>) -> PyResult<String> {
+    let val: serde_json::Value =
+        pythonize::depythonize(&obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
     Ok(agent_tool_parser_core::canonical_json_dumps(&val))
 }
 
@@ -201,8 +198,8 @@ fn canonical_sort_keys<'py>(
     py: Python<'py>,
     obj: Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let val: serde_json::Value = pythonize::depythonize(&obj)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let val: serde_json::Value =
+        pythonize::depythonize(&obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let sorted = agent_tool_parser_core::canonical_sort_keys(&val);
     pythonize(py, &sorted).map_err(|e| PyValueError::new_err(e.to_string()))
 }

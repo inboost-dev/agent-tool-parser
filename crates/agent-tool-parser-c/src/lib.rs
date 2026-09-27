@@ -33,8 +33,8 @@ pub unsafe extern "C" fn atp_parse_tool_call(text: *const c_char) -> *mut ATPToo
 
     match parse_tool_call(c_str) {
         Ok(tc) => {
-            let name_c = CString::new(tc.name).unwrap_or_default().into_raw();
             let args_json = tc.to_canonical_json();
+            let name_c = CString::new(tc.name).unwrap_or_default().into_raw();
             let args_c = CString::new(args_json).unwrap_or_default().into_raw();
             let raw_c = CString::new(tc.raw_source).unwrap_or_default().into_raw();
 
@@ -72,8 +72,8 @@ pub unsafe extern "C" fn atp_parse_tool_calls(text: *const c_char) -> ATPToolCal
         Ok(tcs) => {
             let mut raw_calls: Vec<ATPToolCall> = Vec::with_capacity(tcs.len());
             for tc in tcs {
-                let name_c = CString::new(tc.name).unwrap_or_default().into_raw();
                 let args_json = tc.to_canonical_json();
+                let name_c = CString::new(tc.name).unwrap_or_default().into_raw();
                 let args_c = CString::new(args_json).unwrap_or_default().into_raw();
                 let raw_c = CString::new(tc.raw_source).unwrap_or_default().into_raw();
 

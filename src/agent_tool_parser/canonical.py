@@ -34,7 +34,10 @@ def canonicalize_arguments_string(args_str: str) -> str:
     if not args_str or not isinstance(args_str, str):
         return args_str
     stripped = args_str.strip()
-    if not ((stripped.startswith("{") and stripped.endswith("}")) or (stripped.startswith("[") and stripped.endswith("]"))):
+    if not (
+        (stripped.startswith("{") and stripped.endswith("}"))
+        or (stripped.startswith("[") and stripped.endswith("]"))
+    ):
         return stripped
     try:
         parsed = json.loads(stripped)
@@ -70,8 +73,10 @@ def canonicalize_tool_calls(tool_calls: list[dict[str, Any]]) -> list[dict[str, 
         aligned_calls.append(c)
 
     # Stable sort by function name, then by call ID
-    aligned_calls.sort(key=lambda x: (
-        x.get("function", {}).get("name", "") if isinstance(x.get("function"), dict) else "",
-        str(x.get("id", ""))
-    ))
+    aligned_calls.sort(
+        key=lambda x: (
+            x.get("function", {}).get("name", "") if isinstance(x.get("function"), dict) else "",
+            str(x.get("id", "")),
+        )
+    )
     return aligned_calls

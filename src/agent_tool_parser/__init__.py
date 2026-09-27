@@ -9,6 +9,20 @@ from __future__ import annotations
 
 import os
 
+from agent_tool_parser.canonical import (
+    canonical_json_dumps as _py_canonical_json_dumps,
+)
+from agent_tool_parser.canonical import (
+    canonical_sort_keys as _py_canonical_sort_keys,
+)
+from agent_tool_parser.canonical import (
+    canonicalize_arguments_string as _py_canonicalize_arguments_string,
+)
+from agent_tool_parser.canonical import (
+    canonicalize_tool_calls,
+)
+from agent_tool_parser.cleaners import clean_param_val
+
 # Allow forcing pure-Python mode via environment variable for benchmarking or debugging
 _DISABLE_ACCEL = os.getenv("AGENT_TOOL_PARSER_NO_EXT", "0") in ("1", "true", "True")
 
@@ -20,6 +34,9 @@ if not _DISABLE_ACCEL:
             ToolCall,
             ToolError,
             ToolParser,
+            canonical_json_dumps,
+            canonical_sort_keys,
+            canonicalize_arguments_string,
             clean_json_str,
             extract_json_objects,
             normalize_truncated_json_prefix,
@@ -38,7 +55,6 @@ if not _DISABLE_ACCEL:
 if not ACCELERATED:
     from agent_tool_parser.cleaners import (
         clean_json_str,
-        clean_param_val,
         extract_json_objects,
         normalize_truncated_json_prefix,
         safe_json_loads,
@@ -52,12 +68,10 @@ if not ACCELERATED:
         try_parse_tool_call,
         try_parse_tool_calls,
     )
-from agent_tool_parser.canonical import (
-    canonical_json_dumps,
-    canonical_sort_keys,
-    canonicalize_arguments_string,
-    canonicalize_tool_calls,
-)
+
+    canonical_json_dumps = _py_canonical_json_dumps
+    canonical_sort_keys = _py_canonical_sort_keys
+    canonicalize_arguments_string = _py_canonicalize_arguments_string
 
 __version__ = "0.1.4-dev"
 __all__ = [
@@ -65,6 +79,10 @@ __all__ = [
     "ToolCall",
     "ToolError",
     "ToolParser",
+    "canonical_json_dumps",
+    "canonical_sort_keys",
+    "canonicalize_arguments_string",
+    "canonicalize_tool_calls",
     "clean_json_str",
     "clean_param_val",
     "extract_json_objects",
@@ -75,8 +93,4 @@ __all__ = [
     "strip_thinking",
     "try_parse_tool_call",
     "try_parse_tool_calls",
-    "canonical_sort_keys",
-    "canonical_json_dumps",
-    "canonicalize_arguments_string",
-    "canonicalize_tool_calls",
 ]
