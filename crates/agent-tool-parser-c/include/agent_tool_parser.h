@@ -51,6 +51,12 @@ void atp_free_tool_call_list(ATPToolCallList list);
 char* atp_clean_json_str(const char* json_str);
 
 /**
+ * Normalizes a JSON string into deterministic canonical format with sorted keys.
+ * Returns allocated string that must be freed with atp_free_string(), or NULL on failure.
+ */
+char* atp_canonicalize_json(const char* json_str);
+
+/**
  * Frees any string allocated by this library.
  */
 void atp_free_string(char* s);

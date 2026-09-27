@@ -62,6 +62,36 @@ impl PyToolCall {
         Ok(dict)
     }
 
+    fn to_canonical_json(&self) -> String {
+        agent_tool_parser_core::canonical::canonical_json_dumps(&self.args_val)
+    }
+
+    #[pyo3(signature = (call_id=None, canonical=true))]
+    fn to_openai_tool_call<'py>(
+        &self,
+        py: Python<'py>,
+        call_id: Option<String>,
+        canonical: bool,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let id = call_id.unwrap_or_else(|| format!("call_{}", self.name));
+        let arguments = if canonical {
+            self.to_canonical_json()
+        } else {
+            serde_json::to_string(&self.args_val).unwrap_or_default()
+        };
+
+        let dict = PyDict::new_bound(py);
+        dict.set_item("id", id)?;
+        dict.set_item("type", "function")?;
+
+        let func = PyDict::new_bound(py);
+        func.set_item("name", &self.name)?;
+        func.set_item("arguments", arguments)?;
+
+        dict.set_item("function", func)?;
+        Ok(dict)
+    }
+
     fn __repr__<'py>(&self, py: Python<'py>) -> PyResult<String> {
         let args_repr = self.args(py)?.repr()?.to_string();
         Ok(format!(
@@ -149,6 +179,32 @@ fn extract_json_objects(text: &str) -> Vec<String> {
 #[pyfunction]
 fn strip_thinking(text: &str) -> String {
     cleaners::strip_thinking(text)
+}
+
+#[pyfunction]
+fn canonicalize_arguments_string(s: &str) -> String {
+    agent_tool_parser_core::canonicalize_arguments_string(s)
+}
+
+#[pyfunction]
+fn canonical_json_dumps<'py>(
+    _py: Python<'py>,
+    obj: Bound<'py, PyAny>,
+) -> PyResult<String> {
+    let val: serde_json::Value = pythonize::depythonize(&obj)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok(agent_tool_parser_core::canonical_json_dumps(&val))
+}
+
+#[pyfunction]
+fn canonical_sort_keys<'py>(
+    py: Python<'py>,
+    obj: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let val: serde_json::Value = pythonize::depythonize(&obj)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let sorted = agent_tool_parser_core::canonical_sort_keys(&val);
+    pythonize(py, &sorted).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyclass(name = "ToolParser", module = "_accelerated")]
@@ -259,5 +315,8 @@ fn _accelerated(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(normalize_truncated_json_prefix, m)?)?;
     m.add_function(wrap_pyfunction!(extract_json_objects, m)?)?;
     m.add_function(wrap_pyfunction!(strip_thinking, m)?)?;
+    m.add_function(wrap_pyfunction!(canonicalize_arguments_string, m)?)?;
+    m.add_function(wrap_pyfunction!(canonical_json_dumps, m)?)?;
+    m.add_function(wrap_pyfunction!(canonical_sort_keys, m)?)?;
     Ok(())
 }

@@ -5,10 +5,15 @@
 //! Licensed under the MIT License. Provided "AS IS" without warranty of any kind.
 //! See LICENSE and README.md for full terms and execution safety disclaimers.
 
+pub mod canonical;
 pub mod cleaners;
 pub mod models;
 pub mod parser;
 
+pub use canonical::{
+    canonical_json_dumps, canonical_sort_keys, canonicalize_arguments_string,
+    canonicalize_tool_calls,
+};
 pub use cleaners::{
     clean_json_str, clean_param_val, extract_json_objects, normalize_truncated_json_prefix,
     safe_json_loads, strip_thinking,

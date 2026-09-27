@@ -34,7 +34,7 @@ pub unsafe extern "C" fn atp_parse_tool_call(text: *const c_char) -> *mut ATPToo
     match parse_tool_call(c_str) {
         Ok(tc) => {
             let name_c = CString::new(tc.name).unwrap_or_default().into_raw();
-            let args_json = serde_json::to_string(&tc.args).unwrap_or_default();
+            let args_json = tc.to_canonical_json();
             let args_c = CString::new(args_json).unwrap_or_default().into_raw();
             let raw_c = CString::new(tc.raw_source).unwrap_or_default().into_raw();
 
@@ -73,7 +73,7 @@ pub unsafe extern "C" fn atp_parse_tool_calls(text: *const c_char) -> ATPToolCal
             let mut raw_calls: Vec<ATPToolCall> = Vec::with_capacity(tcs.len());
             for tc in tcs {
                 let name_c = CString::new(tc.name).unwrap_or_default().into_raw();
-                let args_json = serde_json::to_string(&tc.args).unwrap_or_default();
+                let args_json = tc.to_canonical_json();
                 let args_c = CString::new(args_json).unwrap_or_default().into_raw();
                 let raw_c = CString::new(tc.raw_source).unwrap_or_default().into_raw();
 
@@ -148,6 +148,19 @@ pub unsafe extern "C" fn atp_clean_json_str(json_str: *const c_char) -> *mut c_c
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn atp_canonicalize_json(json_str: *const c_char) -> *mut c_char {
+    if json_str.is_null() {
+        return std::ptr::null_mut();
+    }
+    let c_str = match CStr::from_ptr(json_str).to_str() {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let canon = agent_tool_parser_core::canonicalize_arguments_string(c_str);
+    CString::new(canon).unwrap_or_default().into_raw()
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn atp_free_string(s: *mut c_char) {
     if !s.is_null() {
         let _ = CString::from_raw(s);
@@ -189,6 +202,20 @@ mod tests {
             assert_eq!(cleaned, r#"{"foo": "bar"}"#);
 
             atp_free_string(cleaned_ptr);
+        }
+    }
+
+    #[test]
+    fn test_c_abi_canonicalize_json() {
+        unsafe {
+            let input = CString::new(r#"{"z": 1, "a": 2}"#).unwrap();
+            let canon_ptr = atp_canonicalize_json(input.as_ptr());
+            assert!(!canon_ptr.is_null());
+
+            let canon = CStr::from_ptr(canon_ptr).to_str().unwrap();
+            assert_eq!(canon, r#"{"a":2,"z":1}"#);
+
+            atp_free_string(canon_ptr);
         }
     }
 }

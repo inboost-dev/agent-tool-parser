@@ -25,6 +25,32 @@ impl ToolCall {
             raw_source: raw_source.into(),
         }
     }
+
+    /// Serializes tool arguments into deterministic, sorted-key JSON string for KV-cache invariance.
+    pub fn to_canonical_json(&self) -> String {
+        crate::canonical::canonical_json_dumps(&self.args)
+    }
+
+    /// Converts ToolCall into standard OpenAI tool_call schema object.
+    pub fn to_openai_tool_call(&self, call_id: Option<&str>, canonical: bool) -> serde_json::Value {
+        let id = match call_id {
+            Some(i) => i.to_string(),
+            None => format!("call_{}", self.name),
+        };
+        let arguments = if canonical {
+            self.to_canonical_json()
+        } else {
+            self.args.to_string()
+        };
+        serde_json::json!({
+            "id": id,
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "arguments": arguments,
+            }
+        })
+    }
 }
 
 /// Raised when no valid tool call could be extracted or validation failed.

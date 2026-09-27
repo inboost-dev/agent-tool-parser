@@ -36,6 +36,11 @@ pub fn strip_thinking(text: &str) -> String {
     cleaners::strip_thinking(text)
 }
 
+#[wasm_bindgen]
+pub fn canonicalize_json(text: &str) -> String {
+    agent_tool_parser_core::canonicalize_arguments_string(text)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -53,5 +58,11 @@ mod tests {
     fn test_wasm_strip_thinking() {
         let text = "<think>Analyzing query...</think>Action: run";
         assert_eq!(strip_thinking(text), "Action: run");
+    }
+
+    #[test]
+    fn test_wasm_canonicalize_json() {
+        let raw = r#"{"z": 10, "a": 2}"#;
+        assert_eq!(canonicalize_json(raw), r#"{"a":2,"z":10}"#);
     }
 }
