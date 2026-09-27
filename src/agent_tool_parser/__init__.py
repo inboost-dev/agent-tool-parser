@@ -52,10 +52,14 @@ if not ACCELERATED:
         try_parse_tool_call,
         try_parse_tool_calls,
     )
-else:
-    from agent_tool_parser.cleaners import clean_param_val
+from agent_tool_parser.canonical import (
+    canonical_json_dumps,
+    canonical_sort_keys,
+    canonicalize_arguments_string,
+    canonicalize_tool_calls,
+)
 
-__version__ = "0.1.3"
+__version__ = "0.1.4-dev"
 __all__ = [
     "ACCELERATED",
     "ToolCall",
@@ -71,4 +75,8 @@ __all__ = [
     "strip_thinking",
     "try_parse_tool_call",
     "try_parse_tool_calls",
+    "canonical_sort_keys",
+    "canonical_json_dumps",
+    "canonicalize_arguments_string",
+    "canonicalize_tool_calls",
 ]
