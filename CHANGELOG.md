@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
+### Fixed
+- **Zero-Copy Multi-Call Extraction (`extract_raw_tool_calls`)**:
+  - Fixed an early-return bug in direct JSON object extraction that prematurely halted scanning after the first item, ensuring all sequential direct tool calls are returned across both Rust Core and pure-Python reference implementations.
+
 ### Added
 - **Zero-Copy Structural Scan (`RawToolCall` & `extract_raw_tool_calls`)**:
   - High-throughput structural extractor inspired by SilentJSON zero-copy scanning: locates tool calls and isolates `(name, raw_args, raw_source, call_id)` directly from slices without immediate JSON tree deserialization.

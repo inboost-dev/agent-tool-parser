@@ -85,6 +85,17 @@ class TestRawToolCall(unittest.TestCase):
         self.assertEqual(len(raw_calls), 0)
         self.assertIsNone(try_extract_raw_tool_call(text))
 
+    def test_extract_raw_multiple_direct_json(self):
+        text = (
+            "I will run two commands:\n"
+            '{"name": "read_file", "arguments": {"path": "main.rs"}}\n'
+            '{"name": "bash", "arguments": {"command": "cargo test"}}'
+        )
+        calls = extract_raw_tool_calls(text)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0].name, "read_file")
+        self.assertEqual(calls[1].name, "bash")
+
 
 if __name__ == "__main__":
     unittest.main()

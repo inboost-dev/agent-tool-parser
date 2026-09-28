@@ -337,4 +337,15 @@ mod tests {
         assert_eq!(args["query"], "rust");
         assert_eq!(args["limit"], 10);
     }
+
+    #[test]
+    fn test_extract_raw_multiple_direct_json() {
+        let text = r#"I will run two commands:
+{"name": "read_file", "arguments": {"path": "main.rs"}}
+{"name": "bash", "arguments": {"command": "cargo test"}}"#;
+        let calls = extract_raw_tool_calls(text);
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].name, "read_file");
+        assert_eq!(calls[1].name, "bash");
+    }
 }
