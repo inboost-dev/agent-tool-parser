@@ -260,10 +260,9 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
                         }
                     }
                 }
-            }
-
-            if !results.is_empty() {
-                return results;
+                if !results.is_empty() {
+                    return results;
+                }
             }
 
             // Direct object with tool name key

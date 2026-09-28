@@ -259,8 +259,8 @@ def extract_raw_tool_calls(text: str) -> list[RawToolCall]:
                                 )
                             )
 
-            if results:
-                return results
+                if results:
+                    return results
 
             # Direct object with tool name key
             name = (
