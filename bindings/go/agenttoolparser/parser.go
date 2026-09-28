@@ -88,6 +88,80 @@ func ParseToolCalls(text string) ([]ToolCall, error) {
 	return results, nil
 }
 
+// RawToolCall represents an unparsed tool call with arguments as raw string.
+type RawToolCall struct {
+	Name      string `json:"name"`
+	RawArgs   string `json:"raw_args"`
+	RawSource string `json:"raw_source"`
+	CallID    string `json:"call_id,omitempty"`
+}
+
+// ParseArgs deserializes raw arguments into a map.
+func (r *RawToolCall) ParseArgs() (map[string]interface{}, error) {
+	cName := C.CString(r.Name)
+	defer C.free(unsafe.Pointer(cName))
+	cRawArgs := C.CString(r.RawArgs)
+	defer C.free(unsafe.Pointer(cRawArgs))
+	cRawSource := C.CString(r.RawSource)
+	defer C.free(unsafe.Pointer(cRawSource))
+	var cCallID *C.char
+	if r.CallID != "" {
+		cCallID = C.CString(r.CallID)
+		defer C.free(unsafe.Pointer(cCallID))
+	}
+
+	cCall := C.ATPRawToolCall{
+		name:       cName,
+		raw_args:   cRawArgs,
+		raw_source: cRawSource,
+		call_id:    cCallID,
+	}
+
+	jsonPtr := C.atp_raw_parse_args(&cCall)
+	if jsonPtr == nil {
+		return nil, errors.New("failed to parse raw arguments")
+	}
+	defer C.atp_free_string(jsonPtr)
+
+	jsonStr := C.GoString(jsonPtr)
+	var args map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &args); err != nil {
+		return nil, err
+	}
+	return args, nil
+}
+
+// ExtractRawToolCalls extracts raw tool calls from text without full JSON deserialization overhead.
+func ExtractRawToolCalls(text string) ([]RawToolCall, error) {
+	cText := C.CString(text)
+	defer C.free(unsafe.Pointer(cText))
+
+	list := C.atp_extract_raw_tool_calls(cText)
+	defer C.atp_free_raw_tool_call_list(list)
+
+	if list.count == 0 || list.calls == nil {
+		return nil, errors.New("no raw tool calls found")
+	}
+
+	count := int(list.count)
+	slice := unsafe.Slice(list.calls, count)
+	results := make([]RawToolCall, count)
+
+	for i, c := range slice {
+		raw := RawToolCall{
+			Name:      C.GoString(c.name),
+			RawArgs:   C.GoString(c.raw_args),
+			RawSource: C.GoString(c.raw_source),
+		}
+		if c.call_id != nil {
+			raw.CallID = C.GoString(c.call_id)
+		}
+		results[i] = raw
+	}
+
+	return results, nil
+}
+
 // CleanJSONStr repairs malformed JSON strings.
 func CleanJSONStr(raw string) string {
 	cStr := C.CString(raw)

@@ -120,3 +120,26 @@ func TestCanonicalizeToolCalls(t *testing.T) {
 		t.Fatalf("expected second tool to be write_file, got %s", aligned[1].Function.Name)
 	}
 }
+
+func TestExtractRawToolCalls(t *testing.T) {
+	text := `<tool_call>
+{"name": "fetch", "arguments": {"city": "Berlin"}}
+</tool_call>`
+	raws, err := ExtractRawToolCalls(text)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(raws) != 1 {
+		t.Fatalf("expected 1 raw call, got %d", len(raws))
+	}
+	if raws[0].Name != "fetch" {
+		t.Fatalf("expected name 'fetch', got %s", raws[0].Name)
+	}
+	args, err := raws[0].ParseArgs()
+	if err != nil {
+		t.Fatalf("failed to parse args: %v", err)
+	}
+	if args["city"] != "Berlin" {
+		t.Fatalf("expected city 'Berlin', got %v", args["city"])
+	}
+}

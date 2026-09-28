@@ -298,15 +298,327 @@ impl PyToolParser {
     }
 }
 
+#[pyclass(name = "RawToolCall", module = "_accelerated")]
+#[derive(Clone)]
+pub struct PyRawToolCall {
+    #[pyo3(get)]
+    pub name: String,
+    #[pyo3(get)]
+    pub raw_args: String,
+    #[pyo3(get)]
+    pub raw_source: String,
+    #[pyo3(get)]
+    pub call_id: Option<String>,
+}
+
+#[pymethods]
+impl PyRawToolCall {
+    #[new]
+    #[pyo3(signature = (name, raw_args, raw_source, call_id=None))]
+    fn new(name: String, raw_args: String, raw_source: String, call_id: Option<String>) -> Self {
+        Self {
+            name,
+            raw_args,
+            raw_source,
+            call_id,
+        }
+    }
+
+    fn parse_args<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let raw =
+            agent_tool_parser_core::RawToolCall::new(&self.name, &self.raw_args, &self.raw_source);
+        let val = raw
+            .parse_args()
+            .map_err(|e| ToolError::new_err(e.message))?;
+        pythonize(py, &val).map_err(|e| ToolError::new_err(e.to_string()))
+    }
+
+    fn to_tool_call(&self) -> PyResult<PyToolCall> {
+        let raw =
+            agent_tool_parser_core::RawToolCall::new(&self.name, &self.raw_args, &self.raw_source);
+        let tc = raw
+            .to_tool_call()
+            .map_err(|e| ToolError::new_err(e.message))?;
+        Ok(PyToolCall::from_core(tc))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RawToolCall(name={:?}, raw_args={:?})",
+            self.name, self.raw_args
+        )
+    }
+}
+
+#[pyfunction]
+fn extract_raw_tool_calls(text: &str) -> Vec<PyRawToolCall> {
+    agent_tool_parser_core::extract_raw_tool_calls(text)
+        .into_iter()
+        .map(|r| PyRawToolCall {
+            name: r.name,
+            raw_args: r.raw_args,
+            raw_source: r.raw_source,
+            call_id: r.call_id,
+        })
+        .collect()
+}
+
+#[pyfunction]
+fn try_extract_raw_tool_call(text: &str) -> Option<PyRawToolCall> {
+    extract_raw_tool_calls(text).into_iter().next()
+}
+
+#[pyclass(name = "StreamEvent", module = "_accelerated")]
+#[derive(Clone)]
+pub struct PyStreamEvent {
+    #[pyo3(get)]
+    pub event_type: String,
+    #[pyo3(get)]
+    pub text: Option<String>,
+    #[pyo3(get)]
+    pub thinking: Option<String>,
+    #[pyo3(get)]
+    pub name: Option<String>,
+    #[pyo3(get)]
+    pub call_id: Option<String>,
+    #[pyo3(get)]
+    pub delta: Option<String>,
+    #[pyo3(get)]
+    pub tool_call: Option<PyToolCall>,
+}
+
+impl PyStreamEvent {
+    fn from_core(e: agent_tool_parser_core::StreamEvent) -> Self {
+        match e {
+            agent_tool_parser_core::StreamEvent::Text(t) => Self {
+                event_type: "text".to_string(),
+                text: Some(t),
+                thinking: None,
+                name: None,
+                call_id: None,
+                delta: None,
+                tool_call: None,
+            },
+            agent_tool_parser_core::StreamEvent::Thinking(t) => Self {
+                event_type: "thinking".to_string(),
+                text: None,
+                thinking: Some(t),
+                name: None,
+                call_id: None,
+                delta: None,
+                tool_call: None,
+            },
+            agent_tool_parser_core::StreamEvent::ToolCallStarted { name, call_id } => Self {
+                event_type: "tool_call_started".to_string(),
+                text: None,
+                thinking: None,
+                name: Some(name),
+                call_id,
+                delta: None,
+                tool_call: None,
+            },
+            agent_tool_parser_core::StreamEvent::ToolCallArgumentsChunk { name, delta } => Self {
+                event_type: "tool_call_arguments_chunk".to_string(),
+                text: None,
+                thinking: None,
+                name: Some(name),
+                call_id: None,
+                delta: Some(delta),
+                tool_call: None,
+            },
+            agent_tool_parser_core::StreamEvent::ToolCallCompleted(tc) => Self {
+                event_type: "tool_call_completed".to_string(),
+                text: None,
+                thinking: None,
+                name: None,
+                call_id: None,
+                delta: None,
+                tool_call: Some(PyToolCall::from_core(tc)),
+            },
+        }
+    }
+}
+
+#[pymethods]
+impl PyStreamEvent {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (
+        event_type,
+        text=None,
+        thinking=None,
+        name=None,
+        call_id=None,
+        delta=None,
+        tool_call=None,
+        content=None,
+        tool_name=None,
+    ))]
+    fn new(
+        event_type: String,
+        mut text: Option<String>,
+        mut thinking: Option<String>,
+        mut name: Option<String>,
+        call_id: Option<String>,
+        mut delta: Option<String>,
+        tool_call: Option<PyToolCall>,
+        content: Option<String>,
+        tool_name: Option<String>,
+    ) -> Self {
+        if let Some(c) = content {
+            match event_type.as_str() {
+                "thinking" => thinking = Some(c),
+                "text" => text = Some(c),
+                "tool_call_arguments_chunk" => delta = Some(c),
+                _ => {}
+            }
+        }
+        if tool_name.is_some() && name.is_none() {
+            name = tool_name;
+        }
+        Self {
+            event_type,
+            text,
+            thinking,
+            name,
+            call_id,
+            delta,
+            tool_call,
+        }
+    }
+
+    #[getter]
+    fn is_text(&self) -> bool {
+        self.event_type == "text"
+    }
+
+    #[getter]
+    fn is_thinking(&self) -> bool {
+        self.event_type == "thinking"
+    }
+
+    #[getter]
+    fn is_tool_call_started(&self) -> bool {
+        self.event_type == "tool_call_started"
+    }
+
+    #[getter]
+    fn is_tool_call_arguments_chunk(&self) -> bool {
+        self.event_type == "tool_call_arguments_chunk"
+    }
+
+    #[getter]
+    fn is_tool_call_completed(&self) -> bool {
+        self.event_type == "tool_call_completed"
+    }
+
+    #[getter]
+    fn is_tool_call(&self) -> bool {
+        matches!(
+            self.event_type.as_str(),
+            "tool_call_started" | "tool_call_arguments_chunk" | "tool_call_completed"
+        )
+    }
+
+    #[getter]
+    fn content(&self) -> String {
+        if let Some(ref t) = self.text {
+            t.clone()
+        } else if let Some(ref th) = self.thinking {
+            th.clone()
+        } else if let Some(ref d) = self.delta {
+            d.clone()
+        } else {
+            String::new()
+        }
+    }
+
+    #[getter]
+    fn tool_name(&self) -> Option<String> {
+        if let Some(ref n) = self.name {
+            Some(n.clone())
+        } else {
+            self.tool_call.as_ref().map(|tc| tc.name.clone())
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("StreamEvent(type={:?})", self.event_type)
+    }
+}
+
+#[pyclass(name = "StreamingToolParser", module = "_accelerated")]
+pub struct PyStreamingToolParser {
+    inner: agent_tool_parser_core::StreamingToolParser,
+}
+
+#[pymethods]
+impl PyStreamingToolParser {
+    #[new]
+    #[pyo3(signature = (
+        allowed_tools=None,
+        tool_aliases=None,
+        param_aliases=None,
+        allow_shell_fallback=false,
+    ))]
+    fn new(
+        allowed_tools: Option<HashSet<String>>,
+        tool_aliases: Option<HashMap<String, String>>,
+        param_aliases: Option<HashMap<String, String>>,
+        allow_shell_fallback: bool,
+    ) -> Self {
+        let mut config = ToolParserConfig::default();
+        if let Some(at) = allowed_tools {
+            config.allowed_tools = Some(at);
+        }
+        if let Some(ta) = tool_aliases {
+            config.tool_aliases = ta;
+        }
+        if let Some(pa) = param_aliases {
+            config.param_aliases = pa;
+        }
+        config.allow_shell_fallback = allow_shell_fallback;
+
+        Self {
+            inner: agent_tool_parser_core::StreamingToolParser::with_config(config),
+        }
+    }
+
+    fn feed(&mut self, chunk: &str) -> Vec<PyStreamEvent> {
+        self.inner
+            .feed(chunk)
+            .into_iter()
+            .map(PyStreamEvent::from_core)
+            .collect()
+    }
+
+    fn finish(&mut self) -> Vec<PyStreamEvent> {
+        self.inner
+            .finish()
+            .into_iter()
+            .map(PyStreamEvent::from_core)
+            .collect()
+    }
+
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
+}
+
 #[pymodule]
 fn _accelerated(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("ToolError", _py.get_type_bound::<ToolError>())?;
     m.add_class::<PyToolCall>()?;
     m.add_class::<PyToolParser>()?;
+    m.add_class::<PyRawToolCall>()?;
+    m.add_class::<PyStreamEvent>()?;
+    m.add_class::<PyStreamingToolParser>()?;
     m.add_function(wrap_pyfunction!(parse_tool_call, m)?)?;
     m.add_function(wrap_pyfunction!(parse_tool_calls, m)?)?;
     m.add_function(wrap_pyfunction!(try_parse_tool_call, m)?)?;
     m.add_function(wrap_pyfunction!(try_parse_tool_calls, m)?)?;
+    m.add_function(wrap_pyfunction!(extract_raw_tool_calls, m)?)?;
+    m.add_function(wrap_pyfunction!(try_extract_raw_tool_call, m)?)?;
     m.add_function(wrap_pyfunction!(safe_json_loads, m)?)?;
     m.add_function(wrap_pyfunction!(clean_json_str, m)?)?;
     m.add_function(wrap_pyfunction!(normalize_truncated_json_prefix, m)?)?;

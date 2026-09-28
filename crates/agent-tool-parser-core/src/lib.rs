@@ -9,6 +9,8 @@ pub mod canonical;
 pub mod cleaners;
 pub mod models;
 pub mod parser;
+pub mod raw;
+pub mod streaming;
 
 pub use canonical::{
     canonical_json_dumps, canonical_sort_keys, canonicalize_arguments_string,
@@ -22,6 +24,8 @@ pub use models::{ToolCall, ToolError, ToolParserConfig};
 pub use parser::{
     parse_tool_call, parse_tool_calls, try_parse_tool_call, try_parse_tool_calls, ToolParser,
 };
+pub use raw::{extract_raw_tool_calls, try_extract_raw_tool_call, RawToolCall};
+pub use streaming::{StreamEvent, StreamingToolParser};
 
 #[cfg(test)]
 mod tests {

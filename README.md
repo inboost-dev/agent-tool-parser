@@ -160,6 +160,53 @@ openai_tool_call = call.to_openai_tool_call()  # Deterministic sorted keys
 messages[-1]["tool_calls"] = canonicalize_tool_calls(messages[-1]["tool_calls"])
 ```
 
+### Pattern 6: Zero-Copy Structural Scan (SilentJSON Multi-GB/s Routing)
+When filtering, routing, or authorizing tool calls at gateway speeds without incurring the latency and memory overhead of full JSON DOM deserialization:
+
+```python
+from agent_tool_parser import extract_raw_tool_calls
+
+# Fast structural scan: extracts tool name and raw unparsed arguments directly from slices
+raw_calls = extract_raw_tool_calls(stream_or_message_text)
+
+for raw in raw_calls:
+    # 1. Early security policy and permission routing (multi-GB/s throughput)
+    if raw.name not in ALLOWED_GATEWAY_TOOLS:
+        raise PermissionError(f"Unauthorized tool invocation: {raw.name}")
+
+    # 2. Deserialization on demand only when dispatching
+    args = raw.parse_args()
+    execute_tool(raw.name, args)
+```
+
+### Pattern 7: Token-by-Token Event-Driven Streaming
+When consuming streaming responses token-by-token (via SSE or async iterators), `StreamingToolParser` emits real-time events for text, thinking blocks, early tool starts, argument deltas, and completed calls:
+
+```python
+from agent_tool_parser import StreamingToolParser
+
+parser = StreamingToolParser()
+
+async for chunk in model_stream:
+    for event in parser.feed(chunk.text):
+        if event.is_text:
+            await stream_to_client(event.text)
+        elif event.is_thinking:
+            await stream_thought_to_ui(event.thinking)
+        elif event.is_tool_call_started:
+            # Minimal Time-To-First-Event: warm up sandbox or request user confirmation
+            await notify_ui_tool_starting(event.tool_name)
+        elif event.is_tool_call_arguments_chunk:
+            await stream_arguments_delta(event.delta)
+        elif event.is_tool_call_completed:
+            await dispatch_tool_execution(event.tool_call)
+
+# Flush any trailing tokens and recover truncated calls on stream cutoff
+for event in parser.finish():
+    if event.is_tool_call_completed:
+        await dispatch_tool_execution(event.tool_call)
+```
+
 ---
 
 ## Installation

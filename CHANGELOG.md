@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Zero-Copy Structural Scan (`RawToolCall` & `extract_raw_tool_calls`)**:
+  - High-throughput structural extractor inspired by SilentJSON zero-copy scanning: locates tool calls and isolates `(name, raw_args, raw_source, call_id)` directly from slices without immediate JSON tree deserialization.
+  - Enables multi-GB/s routing, policy checks, and early sandbox warming before full deserialization overhead.
+  - On-demand `.parse_args()` and `.to_tool_call()` methods with fault-tolerant repairs for downstream execution.
+  - Implemented with full parity across Rust Core (`agent-tool-parser-core`), PyO3 (`_accelerated`), C-ABI (`atp_extract_raw_tool_calls`, `atp_raw_parse_args`), Go (`ExtractRawToolCalls`), WebAssembly, and pure-Python reference fallback.
+- **Event-Driven Streaming Parser (`StreamingToolParser` & `StreamEvent`)**:
+  - Real-time token-by-token stream consumption supporting heterogeneous LLM formats (DeepSeek DSML, Qwen Action, Claude XML, Markdown JSON, ReAct, native tokens).
+  - Emits real-time event types:
+    - `text`: Plain user-facing text emitted progressively.
+    - `thinking`: Reasoning deliberation emitted from within `<think>...</think>` blocks.
+    - `tool_call_started`: Emitted immediately upon resolving tool name (minimizing Time-To-First-Event for sandbox initialization and permission confirmation).
+    - `tool_call_arguments_chunk`: Incremental raw argument deltas streamed as generated.
+    - `tool_call_completed`: Complete parsed invocation with auto-repair on closing boundary or stream cutoff.
+  - Robust against character-by-character chunking, multi-byte UTF-8 boundaries, and unclosed stream cutoffs.
 - **KV-Cache Canonicalization & Turn Buffer Normalization**:
   - Added deterministic JSON key sorting and compact serialization (`canonical_json_dumps`, `canonical_sort_keys`) to guarantee bit-level prefix invariance for vLLM, SGLang, and multi-turn agent KV caching.
   - Added argument string canonicalization (`canonicalize_arguments_string`) for normalizing raw JSON arguments into canonical compact JSON.

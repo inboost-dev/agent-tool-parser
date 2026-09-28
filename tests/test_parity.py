@@ -11,6 +11,8 @@ import unittest
 
 import agent_tool_parser.cleaners as py_cleaners
 import agent_tool_parser.parser as py_parser
+import agent_tool_parser.raw as py_raw
+import agent_tool_parser.streaming as py_streaming
 from agent_tool_parser.models import ToolError as PyToolError
 
 try:
@@ -367,6 +369,54 @@ class TestDualEngineParity(unittest.TestCase):
             acc_norm = acc.normalize_truncated_json_prefix(inp)
             py_norm = py_cleaners.normalize_truncated_json_prefix(inp)
             self.assertEqual(acc_norm, py_norm)
+
+    def test_parity_raw_extraction(self):
+        """Parity for extract_raw_tool_calls across varied formats."""
+        samples = [
+            '<invoke name="read_file">{"path": "foo.py"}</invoke>',
+            "<｜DSML｜tool name=search><｜DSML｜parameter name=query>deep learning</｜DSML｜parameter></｜DSML｜tool>",
+            '<tool_call>{"name": "calc", "arguments": {"x": 42}}</tool_call>',
+            '```json\n{"name": "bash", "arguments": {"cmd": "ls -la"}}\n```',
+            "Plain text without any tool calls at all.",
+        ]
+        for s in samples:
+            acc_raw = acc.extract_raw_tool_calls(s)
+            py_raw_calls = py_raw.extract_raw_tool_calls(s)
+            self.assertEqual(len(acc_raw), len(py_raw_calls))
+            for ar, pr in zip(acc_raw, py_raw_calls):
+                self.assertEqual(ar.name, pr.name)
+                self.assertEqual(ar.parse_args(), pr.parse_args())
+                self.assertEqual(ar.to_tool_call().name, pr.to_tool_call().name)
+                self.assertEqual(ar.to_tool_call().args, pr.to_tool_call().args)
+
+    def test_parity_streaming(self):
+        """Parity for StreamingToolParser event sequences."""
+        chunks = [
+            "Hello!\n<think>analyzing query</think>\nI will execute:\n",
+            "<｜DSML｜tool name=search>\n",
+            "<｜DSML｜parameter name=q string=true>rust agent</｜DSML｜parameter>\n",
+            "</｜DSML｜tool>\nDone!",
+        ]
+        acc_parser = acc.StreamingToolParser()
+        py_parser = py_streaming.StreamingToolParser()
+
+        acc_events = []
+        py_events = []
+        for ch in chunks:
+            acc_events.extend(acc_parser.feed(ch))
+            py_events.extend(py_parser.feed(ch))
+
+        acc_events.extend(acc_parser.finish())
+        py_events.extend(py_parser.finish())
+
+        self.assertEqual(len(acc_events), len(py_events))
+        for ae, pe in zip(acc_events, py_events):
+            self.assertEqual(ae.event_type, pe.event_type)
+            self.assertEqual(ae.is_text, pe.is_text)
+            self.assertEqual(ae.is_thinking, pe.is_thinking)
+            self.assertEqual(ae.is_tool_call, pe.is_tool_call)
+            self.assertEqual(ae.content, pe.content)
+            self.assertEqual(ae.tool_name, pe.tool_name)
 
 
 if __name__ == "__main__":

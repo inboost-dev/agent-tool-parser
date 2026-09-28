@@ -21,6 +21,40 @@ typedef struct ATPToolCallList {
     size_t count;
 } ATPToolCallList;
 
+typedef struct ATPRawToolCall {
+    char* name;
+    char* raw_args;
+    char* raw_source;
+    char* call_id;
+} ATPRawToolCall;
+
+typedef struct ATPRawToolCallList {
+    ATPRawToolCall* calls;
+    size_t count;
+} ATPRawToolCallList;
+
+/**
+ * Extracts raw tool calls from text without full JSON deserialization overhead.
+ * Returns an ATPRawToolCallList. The list must be freed with atp_free_raw_tool_call_list().
+ */
+ATPRawToolCallList atp_extract_raw_tool_calls(const char* text);
+
+/**
+ * Parses arguments of a raw tool call into canonical JSON string.
+ * Returns allocated string that must be freed with atp_free_string(), or NULL on failure.
+ */
+char* atp_raw_parse_args(const ATPRawToolCall* call);
+
+/**
+ * Frees an ATPRawToolCall allocated by the library.
+ */
+void atp_free_raw_tool_call(ATPRawToolCall* call);
+
+/**
+ * Frees an ATPRawToolCallList allocated by atp_extract_raw_tool_calls().
+ */
+void atp_free_raw_tool_call_list(ATPRawToolCallList list);
+
 /**
  * Parses a single tool call from text.
  * Returns NULL if no valid tool call could be extracted.

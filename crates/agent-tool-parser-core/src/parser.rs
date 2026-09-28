@@ -13,7 +13,7 @@ static JSON_BLOCK_RE: Lazy<Regex> =
 static JSON_ARRAY_BLOCK_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?s)```(?:json)?\s*(\[.*?\])\s*```").unwrap());
 
-static INVOKE_RE: Lazy<Regex> = Lazy::new(|| {
+pub(crate) static INVOKE_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
         r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::[\w-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>|$)"#
     ).unwrap()
@@ -41,7 +41,7 @@ static PARAM_END_FALLBACK_RE: Lazy<Regex> = Lazy::new(|| {
     ).unwrap()
 });
 
-fn extract_xml_parameters(body: &str) -> Vec<(String, String)> {
+pub(crate) fn extract_xml_parameters(body: &str) -> Vec<(String, String)> {
     let mut cdata_spans: Vec<(usize, usize)> = Vec::new();
     let mut cur = 0;
     while let Some(start) = body[cur..].find("<![CDATA[") {

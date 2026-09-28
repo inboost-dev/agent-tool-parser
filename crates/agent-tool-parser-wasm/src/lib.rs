@@ -27,6 +27,18 @@ pub fn parse_tool_calls(text: &str) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn extract_raw_tool_calls(text: &str) -> Result<JsValue, JsValue> {
+    let calls = agent_tool_parser_core::extract_raw_tool_calls(text);
+    serde_wasm_bindgen::to_value(&calls).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+#[wasm_bindgen]
+pub fn try_extract_raw_tool_call(text: &str) -> Result<JsValue, JsValue> {
+    let call = agent_tool_parser_core::try_extract_raw_tool_call(text);
+    serde_wasm_bindgen::to_value(&call).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+#[wasm_bindgen]
 pub fn clean_json_str(s: &str) -> String {
     cleaners::clean_json_str(s)
 }
