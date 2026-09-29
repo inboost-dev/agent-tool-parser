@@ -6,11 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
-### Fixed
-- **Zero-Copy Multi-Call Extraction (`extract_raw_tool_calls`)**:
-  - Fixed an early-return bug in direct JSON object extraction that prematurely halted scanning after the first item, ensuring all sequential direct tool calls are returned across both Rust Core and pure-Python reference implementations.
-
 ### Added
+- **Hardware Architecture & SIMD Vector Engine Detection (`detect_vector_engine`, `CpuVectorEngine`)**:
+  - Safe runtime SIMD architecture detection (`Avx2_256`, `Sse42_128`, `Neon_128`, `Scalar_Fallback`) eliminating SIGILL crash risks on virtualized cloud and containerized CPUs.
+  - Accelerated byte/delimiter scanning routines (`simd_find_byte`, `simd_find_subsequence`) powered by `memchr = "2.7"`.
+  - Implemented with full parity across Rust Core, PyO3 (`_accelerated`), C-ABI (`atp_detect_vector_engine`), WebAssembly, Go (`DetectVectorEngine`), and pure-Python reference fallback.
+- **Python-in-Markdown & Multilingual Action Call Extractor**:
+  - Robust parser for multiline Python function call syntax within markdown code blocks (```` ```python ... ``` ````) and conversational text.
+  - Full support for triple-quoted multiline string literals (`"""..."""` and `'''...'''`), preserving embedded raw newlines, quotes, and whitespace formatting (e.g. for `str_replace` / `edit_file` diff editing).
+  - Native support for localized LLM invocation prefixes (`Вызов функции: ...`, `Действие: ...`) and multilingual XML/DSML tags (`<действие: ...>`, `<вызов_функции>`, `<функция>`, `<инструмент>`, `<параметр>`).
+  - Dual-engine parity verified across Rust Core and pure-Python fallback.
+- **Unescaped Quote Guard (`repair_unescaped_quotes`)**:
+  - Resilient heuristic repair for LLMs omitting escape slashes on inner double quotes within JSON string values (e.g. `{"arguments": {"new_str": "print("Hello world")"}}` or `{"command": "echo "hello" >> log.txt"}`).
+  - Integrated transparently into `safe_json_loads`, `clean_json_str`, and the main parsing pipelines across Rust Core, PyO3, C-ABI (`atp_repair_unescaped_quotes`), WebAssembly, Go (`RepairUnescapedQuotes`), and pure-Python fallback.
 - **Zero-Copy Structural Scan (`RawToolCall` & `extract_raw_tool_calls`)**:
   - High-throughput structural extractor inspired by SilentJSON zero-copy scanning: locates tool calls and isolates `(name, raw_args, raw_source, call_id)` directly from slices without immediate JSON tree deserialization.
   - Enables multi-GB/s routing, policy checks, and early sandbox warming before full deserialization overhead.

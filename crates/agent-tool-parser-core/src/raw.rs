@@ -96,8 +96,17 @@ impl RawToolCall {
             )));
         }
 
-        // 3. Fallback for string / command payloads
+        // 3. Try Python kwargs
+        if trimmed.contains('=') || trimmed.contains('"') || trimmed.contains('\'') {
+            let py_kwargs = crate::python_calls::parse_python_kwargs(trimmed);
+            if !py_kwargs.is_empty() {
+                return Ok(Value::Object(py_kwargs));
+            }
+        }
+
+        // 4. Fallback for string / command payloads
         let mut map = Map::new();
+
         let key =
             if self.name.contains("bash") || self.name.contains("sh") || self.name.contains("exec")
             {
@@ -290,6 +299,19 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
                 results.push(RawToolCall::new(name, raw_args, raw_json));
             }
         }
+    }
+
+    if !results.is_empty() {
+        return results;
+    }
+
+    // 7. Python function calls in Markdown or raw text
+    let py_calls = crate::python_calls::extract_python_function_calls(
+        &clean,
+        &crate::models::ToolParserConfig::default(),
+    );
+    for pc in py_calls {
+        results.push(RawToolCall::new(pc.name, pc.raw_args, pc.raw_source));
     }
 
     results

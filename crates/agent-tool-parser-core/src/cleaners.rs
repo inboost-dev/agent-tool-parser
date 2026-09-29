@@ -202,7 +202,190 @@ pub fn clean_json_str(s: &str) -> String {
     if cleaned.contains("None") {
         cleaned = PY_NONE_RE.replace_all(&cleaned, "null").to_string();
     }
+    if serde_json::from_str::<serde_json::Value>(&cleaned).is_err() && cleaned.contains('"') {
+        cleaned = repair_unescaped_quotes(&cleaned);
+    }
     cleaned
+}
+
+fn is_valid_closing_quote(
+    chars: &[(usize, char)],
+    curr_idx: usize,
+    is_key: bool,
+    in_object: bool,
+) -> bool {
+    let mut j = curr_idx + 1;
+    while j < chars.len() && chars[j].1.is_whitespace() {
+        j += 1;
+    }
+    if j >= chars.len() {
+        return true;
+    }
+    let next_ch = chars[j].1;
+
+    if is_key {
+        return next_ch == ':';
+    }
+
+    if next_ch == ':' {
+        return false;
+    }
+
+    if next_ch == '}' || next_ch == ']' {
+        return true;
+    }
+
+    if next_ch == ',' {
+        if !in_object {
+            return true;
+        }
+        let mut k = j + 1;
+        while k < chars.len() && chars[k].1.is_whitespace() {
+            k += 1;
+        }
+        if k >= chars.len() {
+            return true;
+        }
+        if chars[k].1 == '}' {
+            return true;
+        }
+        if chars[k].1 == '"' || chars[k].1 == '\'' {
+            let quote = chars[k].1;
+            k += 1;
+            let mut escape = false;
+            while k < chars.len() {
+                let c = chars[k].1;
+                if c == '\\' && !escape {
+                    escape = true;
+                } else if c == quote && !escape {
+                    k += 1;
+                    break;
+                } else {
+                    escape = false;
+                }
+                k += 1;
+            }
+            while k < chars.len() && chars[k].1.is_whitespace() {
+                k += 1;
+            }
+            if k < chars.len() && chars[k].1 == ':' {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    false
+}
+
+/// Heuristic repair for unescaped double quotes inside JSON string literals.
+///
+/// Models frequently emit code snippets or shell commands with raw unescaped quotes:
+/// `{"name": "str_replace", "arguments": {"new_str": "print("Hello world")"}}`
+/// This function identifies unescaped internal quotes and escapes them (`\"`),
+/// while preserving legitimate structural JSON quotes and already-escaped sequences.
+pub fn repair_unescaped_quotes(s: &str) -> String {
+    if serde_json::from_str::<serde_json::Value>(s).is_ok() {
+        return s.to_string();
+    }
+
+    let chars: Vec<(usize, char)> = s.char_indices().collect();
+    if chars.is_empty() {
+        return s.to_string();
+    }
+
+    let mut out = String::with_capacity(s.len() + 16);
+    let mut in_string = false;
+    let mut is_key = false;
+    let mut stack: Vec<char> = Vec::new();
+    let mut expect_key = false;
+    let mut i = 0;
+
+    while i < chars.len() {
+        let (_, c) = chars[i];
+
+        if !in_string {
+            match c {
+                '{' => {
+                    stack.push('{');
+                    expect_key = true;
+                    out.push(c);
+                }
+                '[' => {
+                    stack.push('[');
+                    expect_key = false;
+                    out.push(c);
+                }
+                '}' => {
+                    if let Some(top) = stack.last() {
+                        if *top == '{' {
+                            stack.pop();
+                        }
+                    }
+                    expect_key = false;
+                    out.push(c);
+                }
+                ']' => {
+                    if let Some(top) = stack.last() {
+                        if *top == '[' {
+                            stack.pop();
+                        }
+                    }
+                    expect_key = false;
+                    out.push(c);
+                }
+                ':' => {
+                    expect_key = false;
+                    out.push(c);
+                }
+                ',' => {
+                    if stack.last() == Some(&'{') {
+                        expect_key = true;
+                    }
+                    out.push(c);
+                }
+                '"' => {
+                    in_string = true;
+                    is_key = stack.last() == Some(&'{') && expect_key;
+                    out.push(c);
+                }
+                _ => {
+                    out.push(c);
+                }
+            }
+            i += 1;
+        } else {
+            if c == '\\' {
+                out.push('\\');
+                if i + 1 < chars.len() {
+                    i += 1;
+                    out.push(chars[i].1);
+                }
+                i += 1;
+                continue;
+            }
+
+            if c == '"' {
+                let is_closing =
+                    is_valid_closing_quote(&chars, i, is_key, stack.last() == Some(&'{'));
+                if is_closing {
+                    in_string = false;
+                    if is_key {
+                        expect_key = false;
+                    }
+                    out.push('"');
+                } else {
+                    out.push_str(r#"\""#);
+                }
+                i += 1;
+            } else {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+
+    out
 }
 
 /// Escapes raw control characters (< 0x20, like \n, \t) inside unescaped JSON string literals.
@@ -251,12 +434,20 @@ pub fn safe_json_loads(s: &str) -> Option<serde_json::Value> {
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&escaped) {
         return Some(v);
     }
+    let repaired_quotes = repair_unescaped_quotes(&escaped);
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&repaired_quotes) {
+        return Some(v);
+    }
     let repaired = clean_json_str(&escaped);
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&repaired) {
         return Some(v);
     }
     let repaired_orig = clean_json_str(s);
-    serde_json::from_str::<serde_json::Value>(&repaired_orig).ok()
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&repaired_orig) {
+        return Some(v);
+    }
+    let repaired_orig_quotes = repair_unescaped_quotes(&repaired_orig);
+    serde_json::from_str::<serde_json::Value>(&repaired_orig_quotes).ok()
 }
 
 /// Extracts all balanced JSON object candidates from arbitrary text using bracket-depth tracking.
@@ -366,4 +557,39 @@ pub fn extract_json_objects(text: &str) -> Vec<String> {
     }
 
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_repair_unescaped_quotes_code_payload() {
+        let input = r#"{"name": "str_replace", "arguments": {"new_str": "print("Hello world")"}}"#;
+        let repaired = repair_unescaped_quotes(input);
+        let parsed: serde_json::Value = serde_json::from_str(&repaired).unwrap();
+        assert_eq!(parsed["arguments"]["new_str"], "print(\"Hello world\")");
+    }
+
+    #[test]
+    fn test_repair_unescaped_quotes_multi_field() {
+        let input = r#"{"name": "str_replace", "arguments": {"new_str": "print("Hello")", "path": "main.py"}}"#;
+        let val = safe_json_loads(input).unwrap();
+        assert_eq!(val["arguments"]["new_str"], "print(\"Hello\")");
+        assert_eq!(val["arguments"]["path"], "main.py");
+    }
+
+    #[test]
+    fn test_repair_unescaped_quotes_shell_command() {
+        let input = r#"{"command": "echo "hello world" >> log.txt"}"#;
+        let val = safe_json_loads(input).unwrap();
+        assert_eq!(val["command"], "echo \"hello world\" >> log.txt");
+    }
+
+    #[test]
+    fn test_repair_preserves_already_escaped() {
+        let input = r#"{"new_str": "print(\"Hello world\")"}"#;
+        let repaired = repair_unescaped_quotes(input);
+        assert_eq!(repaired, input);
+    }
 }

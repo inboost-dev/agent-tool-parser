@@ -167,6 +167,16 @@ fn clean_json_str(s: &str) -> String {
 }
 
 #[pyfunction]
+fn repair_unescaped_quotes(s: &str) -> String {
+    cleaners::repair_unescaped_quotes(s)
+}
+
+#[pyfunction]
+fn detect_vector_engine() -> &'static str {
+    agent_tool_parser_core::detect_vector_engine().as_str()
+}
+
+#[pyfunction]
 fn normalize_truncated_json_prefix(s: &str) -> String {
     cleaners::normalize_truncated_json_prefix(s).into_owned()
 }
@@ -621,7 +631,10 @@ fn _accelerated(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(try_extract_raw_tool_call, m)?)?;
     m.add_function(wrap_pyfunction!(safe_json_loads, m)?)?;
     m.add_function(wrap_pyfunction!(clean_json_str, m)?)?;
+    m.add_function(wrap_pyfunction!(repair_unescaped_quotes, m)?)?;
+    m.add_function(wrap_pyfunction!(detect_vector_engine, m)?)?;
     m.add_function(wrap_pyfunction!(normalize_truncated_json_prefix, m)?)?;
+
     m.add_function(wrap_pyfunction!(extract_json_objects, m)?)?;
     m.add_function(wrap_pyfunction!(strip_thinking, m)?)?;
     m.add_function(wrap_pyfunction!(canonicalize_arguments_string, m)?)?;

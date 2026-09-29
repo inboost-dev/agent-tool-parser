@@ -143,3 +143,20 @@ func TestExtractRawToolCalls(t *testing.T) {
 		t.Fatalf("expected city 'Berlin', got %v", args["city"])
 	}
 }
+
+func TestRepairUnescapedQuotes(t *testing.T) {
+	raw := `{"cmd": "echo "hello" >> log.txt"}`
+	repaired := RepairUnescapedQuotes(raw)
+	expected := `{"cmd": "echo \"hello\" >> log.txt"}`
+	if repaired != expected {
+		t.Fatalf("expected '%s', got '%s'", expected, repaired)
+	}
+}
+
+func TestDetectVectorEngine(t *testing.T) {
+	engine := DetectVectorEngine()
+	if engine == "" {
+		t.Fatalf("expected non-empty vector engine name")
+	}
+}
+

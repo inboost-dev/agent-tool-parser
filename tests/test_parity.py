@@ -418,6 +418,51 @@ class TestDualEngineParity(unittest.TestCase):
             self.assertEqual(ae.content, pe.content)
             self.assertEqual(ae.tool_name, pe.tool_name)
 
+    def test_parity_unescaped_quote_guard(self):
+        """Parity for repair_unescaped_quotes and safe_json_loads."""
+        samples = [
+            '{"name": "str_replace", "arguments": {"new_str": "print("Hello world")"}}',
+            '{"name": "str_replace", "arguments": {"new_str": "print("Hello")", "path": "main.py"}}',
+            '{"command": "echo "hello" >> log.txt"}',
+            '{"new_str": "print(\\"Hello world\\")"}',
+            '{"code": "x = \\"hello\\" + \\"world\\""}',
+        ]
+        for s in samples:
+            acc_rep = acc.repair_unescaped_quotes(s)
+            py_rep = py_cleaners.repair_unescaped_quotes(s)
+            self.assertEqual(acc_rep, py_rep)
+
+            acc_val = acc.safe_json_loads(s)
+            py_val = py_cleaners.safe_json_loads(s)
+            self.assertEqual(acc_val, py_val)
+
+    def test_parity_python_calls_multiline_and_russian(self):
+        """Parity for multiline Python calls, triple quotes, and Russian action syntax."""
+        samples = [
+            '''```python
+str_replace(
+    path="lib/matplotlib/dates.py",
+    old_str="""def date2num(d):
+    return d""",
+    new_str="""def date2num(d):
+    return _date2num(d)"""
+)
+```''',
+            'Вызов функции: edit_file(path="src/models.py", command="replace")',
+            'Действие: read_file(path="README.md")',
+            """<действие: str_replace>
+{"path": "lib/dates.py", "old_str": "foo", "new_str": "bar"}
+</действие>""",
+            """<действие name="read_file">
+<параметр name="path">src/main.rs</параметр>
+</действие>""",
+        ]
+        for s in samples:
+            acc_call = acc.parse_tool_call(s)
+            py_call = py_parser.parse_tool_call(s)
+            self.assertEqual(acc_call.name, py_call.name)
+            self.assertEqual(acc_call.args, py_call.args)
+
 
 if __name__ == "__main__":
     unittest.main()

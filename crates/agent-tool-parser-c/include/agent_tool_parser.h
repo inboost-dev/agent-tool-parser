@@ -91,9 +91,21 @@ char* atp_clean_json_str(const char* json_str);
 char* atp_canonicalize_json(const char* json_str);
 
 /**
+ * Repairs unescaped double quotes inside JSON string literals.
+ * Returns allocated string that must be freed with atp_free_string(), or NULL on failure.
+ */
+char* atp_repair_unescaped_quotes(const char* json_str);
+
+/**
+ * Returns static string representing active CPU vector engine (e.g. "avx2_256", "neon_128", "scalar_fallback").
+ */
+const char* atp_detect_vector_engine(void);
+
+/**
  * Frees any string allocated by this library.
  */
 void atp_free_string(char* s);
+
 
 #ifdef __cplusplus
 }

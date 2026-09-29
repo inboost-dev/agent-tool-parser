@@ -53,6 +53,18 @@ pub fn canonicalize_json(text: &str) -> String {
     agent_tool_parser_core::canonicalize_arguments_string(text)
 }
 
+#[wasm_bindgen]
+pub fn repair_unescaped_quotes(text: &str) -> String {
+    cleaners::repair_unescaped_quotes(text)
+}
+
+#[wasm_bindgen]
+pub fn detect_vector_engine() -> String {
+    agent_tool_parser_core::detect_vector_engine()
+        .as_str()
+        .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,5 +88,17 @@ mod tests {
     fn test_wasm_canonicalize_json() {
         let raw = r#"{"z": 10, "a": 2}"#;
         assert_eq!(canonicalize_json(raw), r#"{"a":2,"z":10}"#);
+    }
+
+    #[test]
+    fn test_wasm_repair_unescaped_quotes() {
+        let raw = r#"{"cmd": "echo "hello""}"#;
+        assert_eq!(repair_unescaped_quotes(raw), r#"{"cmd": "echo \"hello\""}"#);
+    }
+
+    #[test]
+    fn test_wasm_detect_vector_engine() {
+        let engine = detect_vector_engine();
+        assert!(!engine.is_empty());
     }
 }

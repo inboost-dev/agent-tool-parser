@@ -9,8 +9,10 @@ pub mod canonical;
 pub mod cleaners;
 pub mod models;
 pub mod parser;
+pub mod python_calls;
 pub mod raw;
 pub mod streaming;
+pub mod vector;
 
 pub use canonical::{
     canonical_json_dumps, canonical_sort_keys, canonicalize_arguments_string,
@@ -18,14 +20,17 @@ pub use canonical::{
 };
 pub use cleaners::{
     clean_json_str, clean_param_val, extract_json_objects, normalize_truncated_json_prefix,
-    safe_json_loads, strip_thinking,
+    repair_unescaped_quotes, safe_json_loads, strip_thinking,
 };
+
 pub use models::{ToolCall, ToolError, ToolParserConfig};
 pub use parser::{
     parse_tool_call, parse_tool_calls, try_parse_tool_call, try_parse_tool_calls, ToolParser,
 };
+pub use python_calls::{extract_python_function_calls, ParsedPythonCall};
 pub use raw::{extract_raw_tool_calls, try_extract_raw_tool_call, RawToolCall};
 pub use streaming::{StreamEvent, StreamingToolParser};
+pub use vector::{detect_vector_engine, CpuVectorEngine};
 
 #[cfg(test)]
 mod tests {

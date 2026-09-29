@@ -15,12 +15,12 @@ _ATTR_NAME_RE = re.compile(
 )
 
 _INVOKE_OPEN_RE = re.compile(
-    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>",
+    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>",
     re.IGNORECASE,
 )
 
 _TAG_CLOSE_RE = re.compile(
-    r"</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::[\w-]+)?\s*>",
+    r"</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[\w-]+)?\s*>",
     re.IGNORECASE,
 )
 

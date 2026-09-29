@@ -546,6 +546,84 @@ read_file(path="b.py", offset=2)
             )
             self.assertEqual(calls, [])
 
+    def test_multiline_python_codeblock_with_triple_quotes(self):
+        text = '''```python
+str_replace(
+    path="lib/matplotlib/dates.py",
+    old_str="""def date2num(d):
+    return d""",
+    new_str="""def date2num(d):
+    return _date2num(d)"""
+)
+```'''
+        call = parse_tool_call(text)
+        self.assertEqual(call.name, "str_replace")
+        self.assertEqual(call.args["path"], "lib/matplotlib/dates.py")
+        self.assertEqual(call.args["old_str"], "def date2num(d):\n    return d")
+        self.assertEqual(call.args["new_str"], "def date2num(d):\n    return _date2num(d)")
+
+    def test_russian_action_prefix_and_function_call(self):
+        text = 'Вызов функции: edit_file(path="src/models.py", command="replace")'
+        call = parse_tool_call(text)
+        self.assertEqual(call.name, "str_replace")  # aliased by default
+        self.assertEqual(call.args["path"], "src/models.py")
+        self.assertEqual(call.args["command"], "replace")
+
+        text2 = 'Действие: read_file(path="README.md")'
+        call2 = parse_tool_call(text2)
+        self.assertEqual(call2.name, "read_file")
+        self.assertEqual(call2.args["path"], "README.md")
+
+    def test_russian_action_xml_tags(self):
+        text = """<действие: str_replace>
+{"path": "lib/dates.py", "old_str": "foo", "new_str": "bar"}
+</действие>"""
+        call = parse_tool_call(text)
+        self.assertEqual(call.name, "str_replace")
+        self.assertEqual(call.args["path"], "lib/dates.py")
+        self.assertEqual(call.args["old_str"], "foo")
+        self.assertEqual(call.args["new_str"], "bar")
+
+        text2 = """<действие name="read_file">
+<параметр name="path">src/main.rs</параметр>
+</действие>"""
+        call2 = parse_tool_call(text2)
+        self.assertEqual(call2.name, "read_file")
+        self.assertEqual(call2.args["path"], "src/main.rs")
+
+    def test_unescaped_quote_guard_repair(self):
+        from agent_tool_parser import repair_unescaped_quotes, safe_json_loads
+
+        # Case 1: unescaped quote inside string value
+        text = '{"name": "str_replace", "arguments": {"new_str": "print("Hello world")"}}'
+        repaired = repair_unescaped_quotes(text)
+        self.assertEqual(
+            repaired,
+            '{"name": "str_replace", "arguments": {"new_str": "print(\\"Hello world\\")"}}',
+        )
+
+        # Case 2: safe_json_loads automatically repairs it
+        val = safe_json_loads(text)
+        self.assertIsNotNone(val)
+        self.assertEqual(val["arguments"]["new_str"], 'print("Hello world")')
+
+        # Case 3: parser parses JSON tool call with unescaped internal quotes
+        call = parse_tool_call(text)
+        self.assertEqual(call.name, "str_replace")
+        self.assertEqual(call.args["new_str"], 'print("Hello world")')
+
+        # Case 4: shell command with unescaped quotes
+        text_shell = '{"name": "bash", "arguments": {"command": "echo "hello" >> log.txt"}}'
+        call_shell = parse_tool_call(text_shell)
+        self.assertEqual(call_shell.name, "bash")
+        self.assertEqual(call_shell.args["command"], 'echo "hello" >> log.txt')
+
+    def test_vector_engine_detection(self):
+        from agent_tool_parser import detect_vector_engine
+
+        engine = detect_vector_engine()
+        self.assertIn(str(engine), ("avx2_256", "sse42_128", "neon_128", "scalar_fallback"))
+
 
 if __name__ == "__main__":
     unittest.main()

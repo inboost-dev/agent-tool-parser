@@ -21,7 +21,7 @@ _ATTR_NAME_RE = re.compile(
 )
 
 _INVOKE_RE = re.compile(
-    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::[\w-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>|$)",
+    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[\w-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>|$)",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -43,17 +43,17 @@ _REACT_ACTION_RE = re.compile(
 _MISTRAL_RE = re.compile(r"\[TOOL_CALLS\]\s*(\[\s*\{.*?\}\s*\])", re.IGNORECASE | re.DOTALL)
 
 _PARAM_START_RE = re.compile(
-    r"<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument)\b[^>]*?\bname\s*=\s*['\"]?(?P<pname>[\w-]+)['\"]?[^>]*>",
+    r"<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b[^>]*?\bname\s*=\s*['\"]?(?P<pname>[\w-]+)['\"]?[^>]*>",
     re.IGNORECASE | re.DOTALL,
 )
 
 _PARAM_END_RE = re.compile(
-    r"</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument)\s*>",
+    r"</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\s*>",
     re.IGNORECASE | re.DOTALL,
 )
 
 _PARAM_END_FALLBACK_RE = re.compile(
-    r"</[｜|]+(?:dsml[｜|]*)?[\w:-]+\s*>|</dsml:[\w:-]+\s*>|</(?:tool_name|function_name|tool|invoke|parameter|param|arg|argument)\s*>",
+    r"</[｜|]+(?:dsml[｜|]*)?[\w:-]+\s*>|</dsml:[\w:-]+\s*>|</(?:tool_name|function_name|tool|invoke|parameter|param|arg|argument|параметр|аргумент|действие)\s*>",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -139,8 +139,17 @@ class RawToolCall:
 
             raise ToolError(f"Failed to parse JSON arguments for tool '{self.name}': {trimmed}")
 
-        # 3. String command fallback
+        # 3. Try Python kwargs
+        if "=" in trimmed or '"' in trimmed or "'" in trimmed:
+            from agent_tool_parser.python_calls import _parse_python_kwargs
+
+            py_kwargs = _parse_python_kwargs(trimmed)
+            if py_kwargs:
+                return py_kwargs
+
+        # 4. String command fallback
         key = "command" if any(k in self.name for k in ("bash", "sh", "exec")) else "input"
+
         return {key: trimmed}
 
     def to_tool_call(self) -> ToolCall:
@@ -284,6 +293,17 @@ def extract_raw_tool_calls(text: str) -> list[RawToolCall]:
                 else:
                     raw_args = raw_json
                 results.append(RawToolCall(name=name, raw_args=raw_args, raw_source=raw_json))
+
+    if not results:
+        from agent_tool_parser.python_calls import extract_python_function_calls
+
+        py_calls = extract_python_function_calls(clean)
+        for pc in py_calls:
+            raw_args = ""
+            if "(" in pc.raw_source and pc.raw_source.endswith(")"):
+                open_idx = pc.raw_source.find("(")
+                raw_args = pc.raw_source[open_idx + 1 : -1]
+            results.append(RawToolCall(name=pc.name, raw_args=raw_args, raw_source=pc.raw_source))
 
     return results
 

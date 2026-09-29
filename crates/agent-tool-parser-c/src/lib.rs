@@ -293,6 +293,29 @@ pub unsafe extern "C" fn atp_canonicalize_json(json_str: *const c_char) -> *mut 
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn atp_repair_unescaped_quotes(json_str: *const c_char) -> *mut c_char {
+    if json_str.is_null() {
+        return std::ptr::null_mut();
+    }
+    let c_str = match CStr::from_ptr(json_str).to_str() {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let repaired = agent_tool_parser_core::repair_unescaped_quotes(c_str);
+    CString::new(repaired).unwrap_or_default().into_raw()
+}
+
+#[no_mangle]
+pub extern "C" fn atp_detect_vector_engine() -> *const c_char {
+    match agent_tool_parser_core::detect_vector_engine() {
+        agent_tool_parser_core::CpuVectorEngine::Avx2_256 => c"avx2_256".as_ptr(),
+        agent_tool_parser_core::CpuVectorEngine::Sse42_128 => c"sse42_128".as_ptr(),
+        agent_tool_parser_core::CpuVectorEngine::Neon_128 => c"neon_128".as_ptr(),
+        agent_tool_parser_core::CpuVectorEngine::Scalar_Fallback => c"scalar_fallback".as_ptr(),
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn atp_free_string(s: *mut c_char) {
     if !s.is_null() {
         let _ = CString::from_raw(s);
@@ -375,6 +398,28 @@ mod tests {
 
             atp_free_string(parsed_args_ptr);
             atp_free_raw_tool_call_list(raw_list);
+        }
+    }
+
+    #[test]
+    fn test_c_abi_repair_unescaped_quotes() {
+        unsafe {
+            let input = CString::new(r#"{"cmd": "echo "hello" >> log.txt"}"#).unwrap();
+            let repaired_ptr = atp_repair_unescaped_quotes(input.as_ptr());
+            assert!(!repaired_ptr.is_null());
+            let repaired = CStr::from_ptr(repaired_ptr).to_str().unwrap();
+            assert_eq!(repaired, r#"{"cmd": "echo \"hello\" >> log.txt"}"#);
+            atp_free_string(repaired_ptr);
+        }
+    }
+
+    #[test]
+    fn test_c_abi_detect_vector_engine() {
+        let engine_ptr = atp_detect_vector_engine();
+        assert!(!engine_ptr.is_null());
+        unsafe {
+            let s = CStr::from_ptr(engine_ptr).to_str().unwrap();
+            assert!(!s.is_empty());
         }
     }
 }

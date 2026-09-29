@@ -15,29 +15,32 @@ static JSON_ARRAY_BLOCK_RE: Lazy<Regex> =
 
 pub(crate) static INVOKE_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::[\w-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>|$)"#
+        r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[\w-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>|$)"#
     ).unwrap()
 });
 
 static PARAM_START_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>"#
+        r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>"#
     ).unwrap()
 });
 
 static PARAM_END_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument)\s*>"#).unwrap()
+    Regex::new(
+        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\s*>"#,
+    )
+    .unwrap()
 });
 
 static INVOKE_END_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use)(?::[a-zA-Z0-9_-]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>"#
+        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[a-zA-Z0-9_-]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>"#
     ).unwrap()
 });
 
 static PARAM_END_FALLBACK_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)</[｜|]+(?:dsml[｜|]*)?[\w:-]+\s*>|</dsml:[\w:-]+\s*>|</(?:tool_name|function_name|tool|invoke|parameter|param|arg|argument)\s*>"#
+        r#"(?is)</[｜|]+(?:dsml[｜|]*)?[\w:-]+\s*>|</dsml:[\w:-]+\s*>|</(?:tool_name|function_name|tool|invoke|parameter|param|arg|argument|параметр|аргумент|действие)\s*>"#
     ).unwrap()
 });
 
@@ -159,9 +162,6 @@ static DIRECT_TAG_TNAME_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)<(?:tool_name|function_name|tool)>([\w-]+)</(?:tool_name|function_name|tool)>")
         .unwrap()
 });
-
-static PYTHON_CODEBLOCK_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?s)```(?:python|py)?\s*(.*?)\s*```").unwrap());
 
 static FENCE_CODEBLOCK_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?s)```(?:[a-zA-Z0-9_-]+)?\s*(.*?)\s*```").unwrap());
@@ -1058,246 +1058,24 @@ impl ToolParser {
         calls
     }
 
-    fn split_arg_tokens(s: &str) -> Vec<String> {
-        let mut tokens = Vec::new();
-        let mut current = String::new();
-        let mut in_quote: Option<char> = None;
-        let mut escape = false;
-        let mut depth = 0;
-
-        for c in s.chars() {
-            if escape {
-                current.push(c);
-                escape = false;
-                continue;
-            }
-            if c == '\\' {
-                current.push(c);
-                escape = true;
-                continue;
-            }
-            if let Some(q) = in_quote {
-                current.push(c);
-                if c == q {
-                    in_quote = None;
-                }
-            } else if c == '"' || c == '\'' {
-                in_quote = Some(c);
-                current.push(c);
-            } else if c == '{' || c == '[' || c == '(' {
-                depth += 1;
-                current.push(c);
-            } else if c == '}' || c == ']' || c == ')' {
-                if depth > 0 {
-                    depth -= 1;
-                }
-                current.push(c);
-            } else if c == ',' && depth == 0 {
-                tokens.push(current.trim().to_string());
-                current.clear();
-            } else {
-                current.push(c);
-            }
-        }
-        let last = current.trim();
-        if !last.is_empty() {
-            tokens.push(last.to_string());
-        }
-        tokens
-    }
-
-    fn find_unquoted_equals(s: &str) -> Option<usize> {
-        let mut in_quote: Option<char> = None;
-        let mut escape = false;
-
-        for (i, c) in s.char_indices() {
-            if escape {
-                escape = false;
-                continue;
-            }
-            if c == '\\' {
-                escape = true;
-                continue;
-            }
-            if let Some(q) = in_quote {
-                if c == q {
-                    in_quote = None;
-                }
-            } else if c == '"' || c == '\'' {
-                in_quote = Some(c);
-            } else if c == '=' {
-                return Some(i);
-            }
-        }
-        None
-    }
-
-    fn parse_primitive_val(s: &str) -> Value {
-        let trimmed = s.trim();
-        if ((trimmed.starts_with('"') && trimmed.ends_with('"'))
-            || (trimmed.starts_with('\'') && trimmed.ends_with('\'')))
-            && trimmed.len() >= 2
-        {
-            return Value::String(trimmed[1..trimmed.len() - 1].to_string());
-        }
-        if trimmed == "True" || trimmed == "true" {
-            return Value::Bool(true);
-        }
-        if trimmed == "False" || trimmed == "false" {
-            return Value::Bool(false);
-        }
-        if trimmed == "None" || trimmed == "null" {
-            return Value::Null;
-        }
-        if let Ok(i) = trimmed.parse::<i64>() {
-            return Value::Number(i.into());
-        }
-        if let Ok(f) = trimmed.parse::<f64>() {
-            if let Some(n) = serde_json::Number::from_f64(f) {
-                return Value::Number(n);
-            }
-        }
-        if let Some(v) = safe_json_loads(trimmed) {
-            return v;
-        }
-        Value::String(trimmed.to_string())
-    }
-
     fn try_parse_python_expr(&self, text: &str) -> Vec<ToolCall> {
         if !text.contains('(') {
             return Vec::new();
         }
 
-        let mut candidate = text.trim();
-        if candidate.starts_with("```") {
-            if let Some(caps) = PYTHON_CODEBLOCK_RE.captures(candidate) {
-                candidate = caps.get(1).unwrap().as_str().trim();
-            }
+        let parsed = crate::python_calls::extract_python_function_calls(text, &self.config);
+
+        if !parsed.is_empty() {
+            return parsed
+                .into_iter()
+                .map(|p| {
+                    let norm_args = self.normalize_args(&p.name, p.args);
+                    ToolCall::new(p.name, Value::Object(norm_args), p.raw_source)
+                })
+                .collect();
         }
 
-        let mut calls = Vec::new();
-
-        let python_builtins: [&str; 24] = [
-            "print",
-            "len",
-            "range",
-            "str",
-            "int",
-            "float",
-            "list",
-            "dict",
-            "set",
-            "tuple",
-            "isinstance",
-            "type",
-            "enumerate",
-            "zip",
-            "sum",
-            "min",
-            "max",
-            "open",
-            "help",
-            "id",
-            "input",
-            "eval",
-            "exec",
-            "compile",
-        ];
-
-        for line in candidate.lines() {
-            let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') || !trimmed.contains('(') {
-                continue;
-            }
-
-            let open_paren = match trimmed.find('(') {
-                Some(pos) => pos,
-                None => continue,
-            };
-
-            let before_paren = trimmed[..open_paren].trim();
-            // If line contains '=' before '(', it's an assignment statement, not a tool call!
-            if before_paren.contains('=') {
-                continue;
-            }
-
-            let func_part = before_paren
-                .strip_prefix("call:")
-                .unwrap_or(before_paren)
-                .trim();
-            if func_part.is_empty() {
-                continue;
-            }
-
-            // Function call names cannot contain spaces (e.g. "def foo", "class Bar", "return func")
-            if func_part.contains(' ') || func_part.contains('\t') {
-                continue;
-            }
-
-            let python_keywords: [&str; 15] = [
-                "def", "class", "return", "yield", "raise", "if", "elif", "else", "while", "for",
-                "try", "except", "with", "async", "lambda",
-            ];
-            if python_keywords.contains(&func_part) {
-                continue;
-            }
-
-            let func_name = if func_part.contains('.') {
-                let parts: Vec<&str> = func_part.split('.').collect();
-                if parts.len() >= 2 && ["call", "run", "execute", "invoke"].contains(&parts[1]) {
-                    parts[0]
-                } else if parts.len() >= 2
-                    && ["tool", "tools", "action", "functions"].contains(&parts[0])
-                {
-                    parts[1]
-                } else {
-                    parts.last().copied().unwrap_or(func_part)
-                }
-            } else {
-                func_part
-            };
-
-            if self.config.allowed_tools.is_none() && python_builtins.contains(&func_name) {
-                continue;
-            }
-
-            let name = self.normalize_name(func_name);
-            if !self.is_tool_allowed(&name) {
-                continue;
-            }
-
-            let close_paren = match trimmed.rfind(')') {
-                Some(pos) if pos > open_paren => pos,
-                _ => continue,
-            };
-
-            let raw_args = &trimmed[open_paren + 1..close_paren].trim();
-
-            let mut args = Map::new();
-            let mut pos_idx = 0;
-
-            let arg_tokens = Self::split_arg_tokens(raw_args);
-            for tok in arg_tokens {
-                let tok = tok.trim();
-                if tok.is_empty() {
-                    continue;
-                }
-                if let Some(eq_pos) = Self::find_unquoted_equals(tok) {
-                    let key = tok[..eq_pos].trim().to_string();
-                    let val_str = tok[eq_pos + 1..].trim();
-                    args.insert(key, Self::parse_primitive_val(val_str));
-                } else {
-                    let key = format!("arg{}", pos_idx);
-                    pos_idx += 1;
-                    args.insert(key, Self::parse_primitive_val(tok));
-                }
-            }
-
-            let norm_args = self.normalize_args(&name, args);
-            calls.push(ToolCall::new(name, Value::Object(norm_args), trimmed));
-        }
-
-        calls
+        Vec::new()
     }
 
     fn try_parse_react(&self, text: &str) -> Vec<ToolCall> {

@@ -22,6 +22,7 @@ from agent_tool_parser.canonical import (
     canonicalize_tool_calls,
 )
 from agent_tool_parser.cleaners import clean_param_val
+from agent_tool_parser.python_calls import extract_python_function_calls
 from agent_tool_parser.raw import (
     RawToolCall as _PyRawToolCall,
 )
@@ -36,6 +37,10 @@ from agent_tool_parser.streaming import (
 )
 from agent_tool_parser.streaming import (
     StreamingToolParser as _PyStreamingToolParser,
+)
+from agent_tool_parser.vector import (
+    CpuVectorEngine,
+    detect_vector_engine,
 )
 
 # Allow forcing pure-Python mode via environment variable for benchmarking or debugging
@@ -61,6 +66,7 @@ if not _DISABLE_ACCEL:
             normalize_truncated_json_prefix,
             parse_tool_call,
             parse_tool_calls,
+            repair_unescaped_quotes,
             safe_json_loads,
             strip_thinking,
             try_extract_raw_tool_call,
@@ -77,6 +83,7 @@ if not ACCELERATED:
         clean_json_str,
         extract_json_objects,
         normalize_truncated_json_prefix,
+        repair_unescaped_quotes,
         safe_json_loads,
         strip_thinking,
     )
@@ -101,6 +108,7 @@ if not ACCELERATED:
 __version__ = "0.1.4-dev"
 __all__ = [
     "ACCELERATED",
+    "CpuVectorEngine",
     "RawToolCall",
     "StreamEvent",
     "StreamingToolParser",
@@ -113,11 +121,14 @@ __all__ = [
     "canonicalize_tool_calls",
     "clean_json_str",
     "clean_param_val",
+    "detect_vector_engine",
     "extract_json_objects",
+    "extract_python_function_calls",
     "extract_raw_tool_calls",
     "normalize_truncated_json_prefix",
     "parse_tool_call",
     "parse_tool_calls",
+    "repair_unescaped_quotes",
     "safe_json_loads",
     "strip_thinking",
     "try_extract_raw_tool_call",

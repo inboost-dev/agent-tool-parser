@@ -176,6 +176,30 @@ func CleanJSONStr(raw string) string {
 	return C.GoString(cleaned)
 }
 
+// RepairUnescapedQuotes repairs unescaped double quotes inside JSON string literals.
+func RepairUnescapedQuotes(raw string) string {
+	cStr := C.CString(raw)
+	defer C.free(unsafe.Pointer(cStr))
+
+	repaired := C.atp_repair_unescaped_quotes(cStr)
+	if repaired == nil {
+		return raw
+	}
+	defer C.atp_free_string(repaired)
+
+	return C.GoString(repaired)
+}
+
+// DetectVectorEngine returns the active SIMD vector engine name detected at runtime.
+func DetectVectorEngine() string {
+	engine := C.atp_detect_vector_engine()
+	if engine == nil {
+		return "scalar_fallback"
+	}
+	return C.GoString(engine)
+}
+
+
 // OpenAIFunction represents the function definition inside an OpenAI-style tool call.
 type OpenAIFunction struct {
 	Name      string `json:"name"`

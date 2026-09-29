@@ -55,22 +55,23 @@ _JSON_ARRAY_BLOCK_RE = re.compile(r"```(?:json)?\s*(\[.*?\])\s*```", re.DOTALL)
 
 _INVOKE_TAGS = (
     r"tool_invoke|invoke|tool_call|call|tool|invocation|"
-    r"function_call|function|action|tool_use|ant_tool_use|function_use"
+    r"function_call|function|action|tool_use|ant_tool_use|function_use|"
+    r"действие|вызов_функции|функция|инструмент"
 )
 
 _INVOKE_RE = re.compile(
     r"""<[｜|]*(?:dsml[｜|]*)?(?P<tag>""" + _INVOKE_TAGS + r""")"""
-    r"""(?::(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)"""
-    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=tag)(?::[\w-]+)?\s*>|"""
+    r"""(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)"""
+    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=tag)(?::\s*[\w-]+)?\s*>|"""
     r"""(?=<[｜|]*(?:dsml[｜|]*)?(?:""" + _INVOKE_TAGS + r""")\b)|"""
     r"""(?=</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>)|$)""",
     re.DOTALL | re.IGNORECASE,
 )
 
 _PARAM_RE = re.compile(
-    r"""<[｜|]*(?:dsml[｜|]*)?(?P<ptag>parameter|param|arg|argument)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>(?P<pval>.*?)"""
+    r"""<[｜|]*(?:dsml[｜|]*)?(?P<ptag>parameter|param|arg|argument|параметр|аргумент)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>(?P<pval>.*?)"""
     r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=ptag)\s*>|"""
-    r"""(?=<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument)\b)|"""
+    r"""(?=<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b)|"""
     r"""(?=</?[｜|]*(?:dsml[｜|]*)?(?:"""
     + _INVOKE_TAGS
     + r"""|tool_calls|function_calls|calls|tools)\b)|$)""",
@@ -78,26 +79,27 @@ _PARAM_RE = re.compile(
 )
 
 _PARAM_START_RE = re.compile(
-    r"""<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>""",
+    r"""<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>""",
     re.IGNORECASE,
 )
 
 _PARAM_END_RE = re.compile(
-    r"""</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument)\s*>""",
+    r"""</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\s*>""",
     re.IGNORECASE,
 )
 
 _INVOKE_END_RE = re.compile(
     r"""</[｜|]*(?:dsml[｜|]*)?(?:"""
     + _INVOKE_TAGS
-    + r""")(?:(?::[\w-]+)?\s*>)|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>""",
+    + r""")(?:(?::\s*[\w-]+)?\s*>)|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>""",
     re.IGNORECASE,
 )
 
 _PARAM_END_FALLBACK_RE = re.compile(
-    r"""</[｜|]+(?:dsml[｜|]*)?[\w:-]+\s*>|</dsml:[\w:-]+\s*>|</(?:tool_name|function_name|tool|invoke|parameter|param|arg|argument)\s*>""",
+    r"""</[｜|]+(?:dsml[｜|]*)?[\w:-]+\s*>|</dsml:[\w:-]+\s*>|</(?:tool_name|function_name|tool|invoke|parameter|param|arg|argument|параметр|аргумент|действие)\s*>""",
     re.IGNORECASE,
 )
+
 
 _HEADLESS_COLON_RE = re.compile(
     r"""(?:^|[\s`"'])(?P<delim>":|:|':)\s*["'](?P<tname>[\w-]+)["']\s*,\s*(?P<rest>.*)""",
@@ -828,6 +830,25 @@ class ToolParser:
         """
         if "(" not in text:
             return []
+
+        from agent_tool_parser.python_calls import extract_python_function_calls
+
+        py_calls = extract_python_function_calls(
+            text,
+            allowed_tools=self.allowed_tools,
+            tool_aliases=self.tool_aliases,
+        )
+        if py_calls:
+            norm_calls: list[ToolCall] = []
+            for c in py_calls:
+                norm_name = self.normalize_name(c.name)
+                if self._is_tool_allowed(norm_name):
+                    norm_args = self.normalize_args(norm_name, c.args)
+                    norm_calls.append(
+                        ToolCall(name=norm_name, args=norm_args, raw_source=c.raw_source)
+                    )
+            if norm_calls:
+                return norm_calls
 
         candidate = text.strip()
         # Strip markdown ```python ... ``` if wrapped
