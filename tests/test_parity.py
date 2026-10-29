@@ -480,7 +480,10 @@ str_replace(
             acc_tc = acc.ToolCall(name, raw_args)
             py_tc = py_models.ToolCall(name, raw_args)
 
-            self.assertEqual(acc_tc.category, py_tc.category.value if hasattr(py_tc.category, "value") else py_tc.category)
+            self.assertEqual(
+                acc_tc.category,
+                py_tc.category.value if hasattr(py_tc.category, "value") else py_tc.category,
+            )
             self.assertEqual(acc_tc.normalized_name, py_tc.normalized_name)
             self.assertEqual(acc_tc.normalized_args, py_tc.normalized_args)
             self.assertEqual(acc_tc.is_mutation, py_tc.is_mutation)

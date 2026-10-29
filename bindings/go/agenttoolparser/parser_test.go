@@ -160,3 +160,20 @@ func TestDetectVectorEngine(t *testing.T) {
 	}
 }
 
+func TestCategorizeTool(t *testing.T) {
+	catEdit := CategorizeTool("edit_file", nil)
+	if catEdit != "edit" {
+		t.Fatalf("expected edit, got %s", catEdit)
+	}
+
+	catBashTest := CategorizeTool("bash", map[string]interface{}{"command": "pytest tests/"})
+	if catBashTest != "test" {
+		t.Fatalf("expected test, got %s", catBashTest)
+	}
+
+	tc := ToolCall{Name: "view_file"}
+	if tc.Category() != "read" {
+		t.Fatalf("expected read, got %s", tc.Category())
+	}
+}
+

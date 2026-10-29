@@ -56,7 +56,8 @@ impl PyToolCall {
 
     #[getter]
     fn category(&self) -> &'static str {
-        agent_tool_parser_core::semantics::categorize_tool(&self.name, Some(&self.args_val)).as_str()
+        agent_tool_parser_core::semantics::categorize_tool(&self.name, Some(&self.args_val))
+            .as_str()
     }
 
     #[getter]
@@ -666,10 +667,7 @@ impl PyStreamingToolParser {
 
 #[pyfunction]
 #[pyo3(signature = (name, args=None))]
-fn categorize_tool<'py>(
-    name: &str,
-    args: Option<Bound<'py, PyAny>>,
-) -> &'static str {
+fn categorize_tool<'py>(name: &str, args: Option<Bound<'py, PyAny>>) -> &'static str {
     let args_val = args.and_then(|a| pythonize::depythonize(&a).ok());
     agent_tool_parser_core::semantics::categorize_tool(name, args_val.as_ref()).as_str()
 }
@@ -680,7 +678,10 @@ fn normalize_tool_name(raw_name: &str) -> String {
 }
 
 #[pyfunction]
-fn normalize_tool_args<'py>(py: Python<'py>, args: Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+fn normalize_tool_args<'py>(
+    py: Python<'py>,
+    args: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
     let val: serde_json::Value = pythonize::depythonize(&args).unwrap_or(serde_json::Value::Null);
     let norm = agent_tool_parser_core::semantics::normalize_tool_args(&val);
     pythonize(py, &norm).map_err(|e| ToolError::new_err(e.to_string()))

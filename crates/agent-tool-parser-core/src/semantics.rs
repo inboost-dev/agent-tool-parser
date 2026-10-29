@@ -158,7 +158,11 @@ pub fn normalize_tool_args(args: &Value) -> Value {
             let mut normalized = serde_json::Map::with_capacity(map.len());
             for (k, v) in map {
                 let target_key = resolve_arg_alias(k);
-                let final_key = if target_key.is_empty() { k.as_str() } else { target_key };
+                let final_key = if target_key.is_empty() {
+                    k.as_str()
+                } else {
+                    target_key
+                };
                 normalized.insert(final_key.to_string(), v.clone());
             }
             Value::Object(normalized)
@@ -201,22 +205,40 @@ pub fn categorize_tool(name: &str, args: Option<&Value>) -> ToolCategory {
     }
 
     if category == ToolCategory::Unknown {
-        if ["edit", "write", "patch", "replace"].iter().any(|w| clean.contains(w)) {
+        if ["edit", "write", "patch", "replace"]
+            .iter()
+            .any(|w| clean.contains(w))
+        {
             return ToolCategory::Edit;
         }
-        if ["test", "check", "verify"].iter().any(|w| clean.contains(w)) {
+        if ["test", "check", "verify"]
+            .iter()
+            .any(|w| clean.contains(w))
+        {
             return ToolCategory::Test;
         }
-        if ["bash", "exec", "shell", "run"].iter().any(|w| clean.contains(w)) {
+        if ["bash", "exec", "shell", "run"]
+            .iter()
+            .any(|w| clean.contains(w))
+        {
             return ToolCategory::Exec;
         }
-        if ["read", "view", "show", "cat"].iter().any(|w| clean.contains(w)) {
+        if ["read", "view", "show", "cat"]
+            .iter()
+            .any(|w| clean.contains(w))
+        {
             return ToolCategory::Read;
         }
-        if ["search", "find", "grep", "list"].iter().any(|w| clean.contains(w)) {
+        if ["search", "find", "grep", "list"]
+            .iter()
+            .any(|w| clean.contains(w))
+        {
             return ToolCategory::Search;
         }
-        if ["submit", "finish", "complete"].iter().any(|w| clean.contains(w)) {
+        if ["submit", "finish", "complete"]
+            .iter()
+            .any(|w| clean.contains(w))
+        {
             return ToolCategory::Submit;
         }
     }
@@ -272,7 +294,16 @@ mod tests {
 
     #[test]
     fn test_categorize_tool_mutation() {
-        for name in ["Edit", "edit", "write", "str_replace", "write_file", "edit_file", "notebookedit", "apply_diff"] {
+        for name in [
+            "Edit",
+            "edit",
+            "write",
+            "str_replace",
+            "write_file",
+            "edit_file",
+            "notebookedit",
+            "apply_diff",
+        ] {
             assert_eq!(categorize_tool(name, None), ToolCategory::Edit);
             assert!(is_mutation_tool(name, None));
             assert!(!is_execution_tool(name));
@@ -290,16 +321,25 @@ mod tests {
     #[test]
     fn test_categorize_bash_with_subcommands() {
         let pytest_args = json!({"command": "pytest tests/test_core.py"});
-        assert_eq!(categorize_tool("bash", Some(&pytest_args)), ToolCategory::Test);
+        assert_eq!(
+            categorize_tool("bash", Some(&pytest_args)),
+            ToolCategory::Test
+        );
         assert!(is_verification_tool("bash", Some(&pytest_args)));
         assert!(!is_mutation_tool("bash", Some(&pytest_args)));
 
         let patch_args = json!({"command": "git apply patch.diff"});
-        assert_eq!(categorize_tool("bash", Some(&patch_args)), ToolCategory::Edit);
+        assert_eq!(
+            categorize_tool("bash", Some(&patch_args)),
+            ToolCategory::Edit
+        );
         assert!(is_mutation_tool("bash", Some(&patch_args)));
 
         let redirect_args = json!({"command": "echo 'fix' > file.py"});
-        assert_eq!(categorize_tool("bash", Some(&redirect_args)), ToolCategory::Edit);
+        assert_eq!(
+            categorize_tool("bash", Some(&redirect_args)),
+            ToolCategory::Edit
+        );
         assert!(is_mutation_tool("bash", Some(&redirect_args)));
     }
 

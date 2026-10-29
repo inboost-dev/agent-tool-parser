@@ -38,7 +38,6 @@ CANONICAL_TOOL_MAP: dict[str, tuple[str, ToolCategory]] = {
     "create_file": ("write_file", ToolCategory.EDIT),
     "modify_file": ("edit_file", ToolCategory.EDIT),
     "patch_file": ("apply_diff", ToolCategory.EDIT),
-
     # 2. Command Execution Tools
     "bash": ("bash", ToolCategory.EXEC),
     "execute_bash": ("bash", ToolCategory.EXEC),
@@ -47,7 +46,6 @@ CANONICAL_TOOL_MAP: dict[str, tuple[str, ToolCategory]] = {
     "cmd": ("bash", ToolCategory.EXEC),
     "execute_command": ("bash", ToolCategory.EXEC),
     "run_shell": ("bash", ToolCategory.EXEC),
-
     # 3. Read / Inspection Tools
     "read": ("read", ToolCategory.READ),
     "read_file": ("read", ToolCategory.READ),
@@ -56,7 +54,6 @@ CANONICAL_TOOL_MAP: dict[str, tuple[str, ToolCategory]] = {
     "cat": ("read", ToolCategory.READ),
     "head": ("read", ToolCategory.READ),
     "tail": ("read", ToolCategory.READ),
-
     # 4. Search Tools
     "grep": ("grep", ToolCategory.SEARCH),
     "grep_search": ("grep", ToolCategory.SEARCH),
@@ -67,19 +64,16 @@ CANONICAL_TOOL_MAP: dict[str, tuple[str, ToolCategory]] = {
     "list_dir": ("list_dir", ToolCategory.SEARCH),
     "list_directory": ("list_dir", ToolCategory.SEARCH),
     "ls": ("list_dir", ToolCategory.SEARCH),
-
     # 5. Verification / Testing Tools
     "pytest": ("pytest", ToolCategory.TEST),
     "run_tests": ("run_tests", ToolCategory.TEST),
     "test": ("test", ToolCategory.TEST),
     "l0_run_test": ("l0_run_test", ToolCategory.TEST),
-
     # 6. Conclude / Submit Tools
     "submit": ("submit", ToolCategory.SUBMIT),
     "finish": ("finish", ToolCategory.SUBMIT),
     "complete": ("complete", ToolCategory.SUBMIT),
     "exit": ("exit", ToolCategory.SUBMIT),
-
     # 7. Local L0 Acceleration Tools (InBoost LongRun)
     "l0_verify_syntax": ("l0_verify_syntax", ToolCategory.L0_ACCEL),
     "l0_verify_edit_scope": ("l0_verify_edit_scope", ToolCategory.L0_ACCEL),
@@ -153,9 +147,7 @@ def normalize_tool_args(args: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def categorize_tool(
-    name: str, args: dict[str, Any] | None = None
-) -> ToolCategory:
+def categorize_tool(name: str, args: dict[str, Any] | None = None) -> ToolCategory:
     """Determine semantic category of a tool invocation.
 
     For execution tools (bash), inspects command arguments to disambiguate
@@ -205,9 +197,7 @@ def is_execution_tool(name: str) -> bool:
     return categorize_tool(name) in (ToolCategory.EXEC, ToolCategory.TEST)
 
 
-def is_verification_tool(
-    name: str, args: dict[str, Any] | None = None
-) -> bool:
+def is_verification_tool(name: str, args: dict[str, Any] | None = None) -> bool:
     """Returns True if the tool runs a test suite or verification check."""
     cat = categorize_tool(name, args)
     if cat == ToolCategory.TEST:

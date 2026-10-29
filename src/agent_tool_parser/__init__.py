@@ -125,15 +125,21 @@ from agent_tool_parser.semantics import (  # noqa: E402
 
 # Bind semantic properties to ToolCall
 if not hasattr(ToolCall, "category"):
-    ToolCall.category = property(lambda self: categorize_tool(self.name, getattr(self, "args", None)))
+    ToolCall.category = property(
+        lambda self: categorize_tool(self.name, getattr(self, "args", None))
+    )
 if not hasattr(ToolCall, "normalized_name"):
     ToolCall.normalized_name = property(lambda self: normalize_tool_name(self.name))
 if not hasattr(ToolCall, "normalized_args"):
     ToolCall.normalized_args = property(lambda self: normalize_tool_args(getattr(self, "args", {})))
 if not hasattr(ToolCall, "is_mutation"):
-    ToolCall.is_mutation = property(lambda self: is_mutation_tool(self.name, getattr(self, "args", None)))
+    ToolCall.is_mutation = property(
+        lambda self: is_mutation_tool(self.name, getattr(self, "args", None))
+    )
 if not hasattr(ToolCall, "is_verification"):
-    ToolCall.is_verification = property(lambda self: is_verification_tool(self.name, getattr(self, "args", None)))
+    ToolCall.is_verification = property(
+        lambda self: is_verification_tool(self.name, getattr(self, "args", None))
+    )
 if not hasattr(ToolCall, "is_execution"):
     ToolCall.is_execution = property(lambda self: is_execution_tool(self.name))
 if not hasattr(ToolCall, "is_read"):
