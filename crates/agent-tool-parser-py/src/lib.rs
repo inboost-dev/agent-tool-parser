@@ -54,11 +54,58 @@ impl PyToolCall {
         pythonize(py, &self.args_val).map_err(|e| ToolError::new_err(e.to_string()))
     }
 
+    #[getter]
+    fn category(&self) -> &'static str {
+        agent_tool_parser_core::semantics::categorize_tool(&self.name, Some(&self.args_val)).as_str()
+    }
+
+    #[getter]
+    fn normalized_name(&self) -> String {
+        agent_tool_parser_core::semantics::normalize_tool_name(&self.name)
+    }
+
+    #[getter]
+    fn normalized_args<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let norm = agent_tool_parser_core::semantics::normalize_tool_args(&self.args_val);
+        pythonize(py, &norm).map_err(|e| ToolError::new_err(e.to_string()))
+    }
+
+    #[getter]
+    fn is_mutation(&self) -> bool {
+        agent_tool_parser_core::semantics::is_mutation_tool(&self.name, Some(&self.args_val))
+    }
+
+    #[getter]
+    fn is_verification(&self) -> bool {
+        agent_tool_parser_core::semantics::is_verification_tool(&self.name, Some(&self.args_val))
+    }
+
+    #[getter]
+    fn is_execution(&self) -> bool {
+        agent_tool_parser_core::semantics::is_execution_tool(&self.name)
+    }
+
+    #[getter]
+    fn is_read(&self) -> bool {
+        agent_tool_parser_core::semantics::is_read_tool(&self.name)
+    }
+
+    #[getter]
+    fn is_search(&self) -> bool {
+        agent_tool_parser_core::semantics::is_search_tool(&self.name)
+    }
+
+    #[getter]
+    fn is_submit(&self) -> bool {
+        agent_tool_parser_core::semantics::is_submit_tool(&self.name)
+    }
+
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new_bound(py);
         dict.set_item("name", &self.name)?;
         dict.set_item("args", self.args(py)?)?;
         dict.set_item("raw_source", &self.raw_source)?;
+        dict.set_item("category", self.category())?;
         Ok(dict)
     }
 
@@ -93,10 +140,12 @@ impl PyToolCall {
     }
 
     fn __repr__<'py>(&self, py: Python<'py>) -> PyResult<String> {
+        let name_repr = self.name.to_object(py).bind(py).repr()?.to_string();
+        let cat_repr = self.category().to_object(py).bind(py).repr()?.to_string();
         let args_repr = self.args(py)?.repr()?.to_string();
         Ok(format!(
-            "ToolCall(name={:?}, args={})",
-            self.name, args_repr
+            "ToolCall(name={}, category={}, args={})",
+            name_repr, cat_repr, args_repr
         ))
     }
 
@@ -615,6 +664,62 @@ impl PyStreamingToolParser {
     }
 }
 
+#[pyfunction]
+#[pyo3(signature = (name, args=None))]
+fn categorize_tool<'py>(
+    name: &str,
+    args: Option<Bound<'py, PyAny>>,
+) -> &'static str {
+    let args_val = args.and_then(|a| pythonize::depythonize(&a).ok());
+    agent_tool_parser_core::semantics::categorize_tool(name, args_val.as_ref()).as_str()
+}
+
+#[pyfunction]
+fn normalize_tool_name(raw_name: &str) -> String {
+    agent_tool_parser_core::semantics::normalize_tool_name(raw_name)
+}
+
+#[pyfunction]
+fn normalize_tool_args<'py>(py: Python<'py>, args: Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    let val: serde_json::Value = pythonize::depythonize(&args).unwrap_or(serde_json::Value::Null);
+    let norm = agent_tool_parser_core::semantics::normalize_tool_args(&val);
+    pythonize(py, &norm).map_err(|e| ToolError::new_err(e.to_string()))
+}
+
+#[pyfunction]
+#[pyo3(signature = (name, args=None))]
+fn is_mutation_tool<'py>(name: &str, args: Option<Bound<'py, PyAny>>) -> bool {
+    let args_val = args.and_then(|a| pythonize::depythonize(&a).ok());
+    agent_tool_parser_core::semantics::is_mutation_tool(name, args_val.as_ref())
+}
+
+#[pyfunction]
+fn is_execution_tool(name: &str) -> bool {
+    agent_tool_parser_core::semantics::is_execution_tool(name)
+}
+
+#[pyfunction]
+#[pyo3(signature = (name, args=None))]
+fn is_verification_tool<'py>(name: &str, args: Option<Bound<'py, PyAny>>) -> bool {
+    let args_val = args.and_then(|a| pythonize::depythonize(&a).ok());
+    agent_tool_parser_core::semantics::is_verification_tool(name, args_val.as_ref())
+}
+
+#[pyfunction]
+fn is_read_tool(name: &str) -> bool {
+    agent_tool_parser_core::semantics::is_read_tool(name)
+}
+
+#[pyfunction]
+fn is_search_tool(name: &str) -> bool {
+    agent_tool_parser_core::semantics::is_search_tool(name)
+}
+
+#[pyfunction]
+fn is_submit_tool(name: &str) -> bool {
+    agent_tool_parser_core::semantics::is_submit_tool(name)
+}
+
 #[pymodule]
 fn _accelerated(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("ToolError", _py.get_type_bound::<ToolError>())?;
@@ -640,5 +745,14 @@ fn _accelerated(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(canonicalize_arguments_string, m)?)?;
     m.add_function(wrap_pyfunction!(canonical_json_dumps, m)?)?;
     m.add_function(wrap_pyfunction!(canonical_sort_keys, m)?)?;
+    m.add_function(wrap_pyfunction!(categorize_tool, m)?)?;
+    m.add_function(wrap_pyfunction!(normalize_tool_name, m)?)?;
+    m.add_function(wrap_pyfunction!(normalize_tool_args, m)?)?;
+    m.add_function(wrap_pyfunction!(is_mutation_tool, m)?)?;
+    m.add_function(wrap_pyfunction!(is_execution_tool, m)?)?;
+    m.add_function(wrap_pyfunction!(is_verification_tool, m)?)?;
+    m.add_function(wrap_pyfunction!(is_read_tool, m)?)?;
+    m.add_function(wrap_pyfunction!(is_search_tool, m)?)?;
+    m.add_function(wrap_pyfunction!(is_submit_tool, m)?)?;
     Ok(())
 }

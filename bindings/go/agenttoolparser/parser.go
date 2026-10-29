@@ -330,3 +330,25 @@ func CanonicalizeToolCalls(calls []OpenAIToolCall) []OpenAIToolCall {
 
 	return result
 }
+
+// CategorizeTool determines the semantic category of a tool invocation.
+func CategorizeTool(name string, args map[string]interface{}) string {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	var cArgs *C.char
+	if len(args) > 0 {
+		if b, err := json.Marshal(args); err == nil {
+			cArgs = C.CString(string(b))
+			defer C.free(unsafe.Pointer(cArgs))
+		}
+	}
+
+	res := C.atp_categorize_tool(cName, cArgs)
+	return C.GoString(res)
+}
+
+// Category returns the semantic category of this tool call.
+func (tc *ToolCall) Category() string {
+	return CategorizeTool(tc.Name, tc.Args)
+}

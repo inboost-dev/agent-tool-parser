@@ -11,6 +11,7 @@ pub mod models;
 pub mod parser;
 pub mod python_calls;
 pub mod raw;
+pub mod semantics;
 pub mod streaming;
 pub mod vector;
 
@@ -29,6 +30,10 @@ pub use parser::{
 };
 pub use python_calls::{extract_python_function_calls, ParsedPythonCall};
 pub use raw::{extract_raw_tool_calls, try_extract_raw_tool_call, RawToolCall};
+pub use semantics::{
+    categorize_tool, is_execution_tool, is_mutation_tool, is_read_tool, is_search_tool,
+    is_submit_tool, is_verification_tool, normalize_tool_args, normalize_tool_name, ToolCategory,
+};
 pub use streaming::{StreamEvent, StreamingToolParser};
 pub use vector::{detect_vector_engine, CpuVectorEngine};
 

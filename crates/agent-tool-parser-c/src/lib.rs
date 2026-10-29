@@ -322,6 +322,39 @@ pub unsafe extern "C" fn atp_free_string(s: *mut c_char) {
     }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn atp_categorize_tool(
+    name: *const c_char,
+    args_json: *const c_char,
+) -> *const c_char {
+    if name.is_null() {
+        return c"unknown".as_ptr();
+    }
+    let name_str = match CStr::from_ptr(name).to_str() {
+        Ok(s) => s,
+        Err(_) => return c"unknown".as_ptr(),
+    };
+    let args_val = if !args_json.is_null() {
+        if let Ok(s) = CStr::from_ptr(args_json).to_str() {
+            serde_json::from_str::<serde_json::Value>(s).ok()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    match agent_tool_parser_core::semantics::categorize_tool(name_str, args_val.as_ref()) {
+        agent_tool_parser_core::semantics::ToolCategory::Edit => c"edit".as_ptr(),
+        agent_tool_parser_core::semantics::ToolCategory::Exec => c"exec".as_ptr(),
+        agent_tool_parser_core::semantics::ToolCategory::Read => c"read".as_ptr(),
+        agent_tool_parser_core::semantics::ToolCategory::Search => c"search".as_ptr(),
+        agent_tool_parser_core::semantics::ToolCategory::Test => c"test".as_ptr(),
+        agent_tool_parser_core::semantics::ToolCategory::Submit => c"submit".as_ptr(),
+        agent_tool_parser_core::semantics::ToolCategory::L0Accel => c"l0_accel".as_ptr(),
+        agent_tool_parser_core::semantics::ToolCategory::Unknown => c"unknown".as_ptr(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,6 +443,17 @@ mod tests {
             let repaired = CStr::from_ptr(repaired_ptr).to_str().unwrap();
             assert_eq!(repaired, r#"{"cmd": "echo \"hello\" >> log.txt"}"#);
             atp_free_string(repaired_ptr);
+        }
+    }
+
+    #[test]
+    fn test_c_abi_categorize_tool() {
+        unsafe {
+            let name = CString::new("bash").unwrap();
+            let args = CString::new(r#"{"command": "pytest -v"}"#).unwrap();
+            let cat = atp_categorize_tool(name.as_ptr(), args.as_ptr());
+            let cat_str = CStr::from_ptr(cat).to_str().unwrap();
+            assert_eq!(cat_str, "test");
         }
     }
 

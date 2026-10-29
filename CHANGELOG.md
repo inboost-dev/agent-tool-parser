@@ -4,9 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [Unreleased]
+## [0.1.4] - 2026-10-29
 
 ### Added
+- **Semantic Tool Categorization & Normalization (`ToolCategory`, `categorize_tool`, `normalize_tool_name`, `normalize_tool_args`)**:
+  - Unified semantic categorization model across agent frameworks (OpenHands, Claude Code, Cursor, Aider, InBoost LongRun) with canonical categories: `EDIT`, `EXEC`, `READ`, `SEARCH`, `TEST`, `SUBMIT`, `L0_ACCEL`.
+  - Contextual bash command inspection to accurately disambiguate verification tests (`pytest`, `unittest`, `cargo test`) and mutations (`git apply`, redirection, `patch`).
+  - Cross-agent argument alias normalization (`file_path` / `filepath` -> `path`, `old_string` -> `old_str`, `new_string` -> `new_str`, `cmd` -> `command`).
+  - Added semantic inspection properties on `ToolCall`: `.category`, `.normalized_name`, `.normalized_args`, `.is_mutation`, `.is_verification`, `.is_execution`, `.is_read`, `.is_search`, `.is_submit`.
+  - Full dual-engine parity across Rust Core (`agent-tool-parser-core`), C ABI, WebAssembly, Go, PyO3 Native Acceleration (`agent-tool-parser-py`), and pure-Python reference fallback.
 - **Hardware Architecture & SIMD Vector Engine Detection (`detect_vector_engine`, `CpuVectorEngine`)**:
   - Safe runtime SIMD architecture detection (`Avx2_256`, `Sse42_128`, `Neon_128`, `Scalar_Fallback`) eliminating SIGILL crash risks on virtualized cloud and containerized CPUs.
   - Accelerated byte/delimiter scanning routines (`simd_find_byte`, `simd_find_subsequence`) powered by `memchr = "2.7"`.

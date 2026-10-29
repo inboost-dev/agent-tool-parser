@@ -65,6 +65,14 @@ pub fn detect_vector_engine() -> String {
         .to_string()
 }
 
+#[wasm_bindgen]
+pub fn categorize_tool(name: &str, args_json: Option<String>) -> String {
+    let args_val = args_json.and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
+    agent_tool_parser_core::semantics::categorize_tool(name, args_val.as_ref())
+        .as_str()
+        .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,6 +102,15 @@ mod tests {
     fn test_wasm_repair_unescaped_quotes() {
         let raw = r#"{"cmd": "echo "hello""}"#;
         assert_eq!(repair_unescaped_quotes(raw), r#"{"cmd": "echo \"hello\""}"#);
+    }
+
+    #[test]
+    fn test_wasm_categorize_tool() {
+        assert_eq!(categorize_tool("edit", None), "edit");
+        assert_eq!(
+            categorize_tool("bash", Some(r#"{"command": "pytest"}"#.to_string())),
+            "test"
+        );
     }
 
     #[test]

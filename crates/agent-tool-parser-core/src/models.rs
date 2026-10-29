@@ -51,6 +51,51 @@ impl ToolCall {
             }
         })
     }
+
+    /// Semantic category of this tool call.
+    pub fn category(&self) -> crate::semantics::ToolCategory {
+        crate::semantics::categorize_tool(&self.name, Some(&self.args))
+    }
+
+    /// Canonicalized lowercase tool name.
+    pub fn normalized_name(&self) -> String {
+        crate::semantics::normalize_tool_name(&self.name)
+    }
+
+    /// Arguments with parameter aliases resolved.
+    pub fn normalized_args(&self) -> serde_json::Value {
+        crate::semantics::normalize_tool_args(&self.args)
+    }
+
+    /// Whether this tool modifies files or code on disk.
+    pub fn is_mutation(&self) -> bool {
+        crate::semantics::is_mutation_tool(&self.name, Some(&self.args))
+    }
+
+    /// Whether this tool executes test suites or verification checks.
+    pub fn is_verification(&self) -> bool {
+        crate::semantics::is_verification_tool(&self.name, Some(&self.args))
+    }
+
+    /// Whether this tool executes system shell commands.
+    pub fn is_execution(&self) -> bool {
+        crate::semantics::is_execution_tool(&self.name)
+    }
+
+    /// Whether this tool is an inspection or reading tool.
+    pub fn is_read(&self) -> bool {
+        crate::semantics::is_read_tool(&self.name)
+    }
+
+    /// Whether this tool searches the codebase or directory tree.
+    pub fn is_search(&self) -> bool {
+        crate::semantics::is_search_tool(&self.name)
+    }
+
+    /// Whether this tool submits or concludes the task.
+    pub fn is_submit(&self) -> bool {
+        crate::semantics::is_submit_tool(&self.name)
+    }
 }
 
 /// Raised when no valid tool call could be extracted or validation failed.

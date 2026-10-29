@@ -107,6 +107,12 @@ const char* atp_detect_vector_engine(void);
 void atp_free_string(char* s);
 
 
+/**
+ * Categorizes a tool invocation.
+ * Returns static null-terminated category string ("edit", "exec", "read", "search", "test", "submit", "l0_accel", "unknown").
+ */
+const char* atp_categorize_tool(const char* name, const char* args_json);
+
 #ifdef __cplusplus
 }
 #endif

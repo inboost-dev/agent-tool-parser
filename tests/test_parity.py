@@ -10,6 +10,7 @@ import json
 import unittest
 
 import agent_tool_parser.cleaners as py_cleaners
+import agent_tool_parser.models as py_models
 import agent_tool_parser.parser as py_parser
 import agent_tool_parser.raw as py_raw
 import agent_tool_parser.streaming as py_streaming
@@ -462,6 +463,35 @@ str_replace(
             py_call = py_parser.parse_tool_call(s)
             self.assertEqual(acc_call.name, py_call.name)
             self.assertEqual(acc_call.args, py_call.args)
+
+    def test_parity_semantics_and_tool_call_methods(self):
+        """Differential parity for ToolCategory, normalization, predicates, to_dict, and repr."""
+        test_cases = [
+            ("Edit", {"file_path": "a.py", "old_string": "x", "new_string": "y"}),
+            ("bash", {"command": "pytest -v tests/"}),
+            ("bash", {"command": "git apply patch.diff"}),
+            ("bash", {"command": "ls -la"}),
+            ("read_file", {"filepath": "README.md"}),
+            ("grep_search", {"query_string": "def foo"}),
+            ("submit", {}),
+            ("l0_verify_syntax", {"path": "main.py"}),
+        ]
+        for name, raw_args in test_cases:
+            acc_tc = acc.ToolCall(name, raw_args)
+            py_tc = py_models.ToolCall(name, raw_args)
+
+            self.assertEqual(acc_tc.category, py_tc.category.value if hasattr(py_tc.category, "value") else py_tc.category)
+            self.assertEqual(acc_tc.normalized_name, py_tc.normalized_name)
+            self.assertEqual(acc_tc.normalized_args, py_tc.normalized_args)
+            self.assertEqual(acc_tc.is_mutation, py_tc.is_mutation)
+            self.assertEqual(acc_tc.is_verification, py_tc.is_verification)
+            self.assertEqual(acc_tc.is_execution, py_tc.is_execution)
+            self.assertEqual(acc_tc.is_read, py_tc.is_read)
+            self.assertEqual(acc_tc.is_search, py_tc.is_search)
+            self.assertEqual(acc_tc.is_submit, py_tc.is_submit)
+            self.assertEqual(acc_tc.to_dict(), py_tc.to_dict())
+            self.assertIn(f"name={py_tc.name!r}", repr(acc_tc))
+            self.assertIn(f"category={py_tc.category.value!r}", repr(acc_tc))
 
 
 if __name__ == "__main__":
