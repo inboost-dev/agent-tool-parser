@@ -172,7 +172,144 @@ def clean_json_str(s: str) -> str:
         s = _PY_FALSE_RE.sub("false", s)
     if "None" in s:
         s = _PY_NONE_RE.sub("null", s)
+    if '"' in s:
+        try:
+            json.loads(s)
+        except Exception:
+            s = repair_unescaped_quotes(s)
     return s
+
+
+def _is_valid_closing_quote(chars: list[str], curr_idx: int, is_key: bool, in_object: bool) -> bool:
+    j = curr_idx + 1
+    n = len(chars)
+    while j < n and chars[j].isspace():
+        j += 1
+    if j >= n:
+        return True
+    next_ch = chars[j]
+    if is_key:
+        return next_ch == ":"
+    if next_ch == ":":
+        return False
+    if next_ch in ("}", "]"):
+        return True
+    if next_ch == ",":
+        if not in_object:
+            return True
+        k = j + 1
+        while k < n and chars[k].isspace():
+            k += 1
+        if k >= n:
+            return True
+        if chars[k] == "}":
+            return True
+        if chars[k] in ('"', "'"):
+            quote = chars[k]
+            k += 1
+            escape = False
+            while k < n:
+                c = chars[k]
+                if c == "\\" and not escape:
+                    escape = True
+                elif c == quote and not escape:
+                    k += 1
+                    break
+                else:
+                    escape = False
+                k += 1
+            while k < n and chars[k].isspace():
+                k += 1
+            if k < n and chars[k] == ":":
+                return True
+        return False
+    return False
+
+
+def repair_unescaped_quotes(s: str) -> str:
+    """Heuristic repair for unescaped double quotes inside JSON string literals.
+
+    Models frequently emit code snippets or shell commands with raw unescaped quotes:
+    `{"name": "str_replace", "arguments": {"new_str": "print("Hello world")"}}`
+    This function identifies unescaped internal quotes and escapes them (`\\"`),
+    while preserving legitimate structural JSON quotes and already-escaped sequences.
+    """
+    try:
+        json.loads(s)
+        return s
+    except Exception:
+        pass
+
+    chars = list(s)
+    if not chars:
+        return s
+
+    out: list[str] = []
+    in_string = False
+    is_key = False
+    stack: list[str] = []
+    expect_key = False
+    i = 0
+    n = len(chars)
+
+    while i < n:
+        c = chars[i]
+        if not in_string:
+            if c == "{":
+                stack.append("{")
+                expect_key = True
+                out.append(c)
+            elif c == "[":
+                stack.append("[")
+                expect_key = False
+                out.append(c)
+            elif c == "}":
+                if stack and stack[-1] == "{":
+                    stack.pop()
+                expect_key = False
+                out.append(c)
+            elif c == "]":
+                if stack and stack[-1] == "[":
+                    stack.pop()
+                expect_key = False
+                out.append(c)
+            elif c == ":":
+                expect_key = False
+                out.append(c)
+            elif c == ",":
+                if stack and stack[-1] == "{":
+                    expect_key = True
+                out.append(c)
+            elif c == '"':
+                in_string = True
+                is_key = bool(stack and stack[-1] == "{" and expect_key)
+                out.append(c)
+            else:
+                out.append(c)
+            i += 1
+        else:
+            if c == "\\":
+                out.append("\\")
+                if i + 1 < n:
+                    i += 1
+                    out.append(chars[i])
+                i += 1
+                continue
+            if c == '"':
+                in_obj = bool(stack and stack[-1] == "{")
+                if _is_valid_closing_quote(chars, i, is_key, in_obj):
+                    in_string = False
+                    if is_key:
+                        expect_key = False
+                    out.append('"')
+                else:
+                    out.append(r"\"")
+                i += 1
+            else:
+                out.append(c)
+                i += 1
+
+    return "".join(out)
 
 
 try:
@@ -215,6 +352,11 @@ def safe_json_loads(s: str, default: Any = None) -> Any:
 
     try:
         return _fast_json_loads(clean_json_str(s))
+    except Exception:
+        pass
+
+    try:
+        return _fast_json_loads(repair_unescaped_quotes(s))
     except Exception:
         pass
 

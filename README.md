@@ -1,9 +1,9 @@
 # agent-tool-parser ⚡
 
 [![Documentation](https://img.shields.io/badge/docs-interactive%20playground-blueviolet.svg)](https://inboost-dev.github.io/agent-tool-parser/)
-[![PyPI version](https://img.shields.io/badge/pypi-v0.1.3-blue.svg)](https://pypi.org/project/agent-tool-parser/)
+[![PyPI version](https://img.shields.io/badge/pypi-v0.1.4-blue.svg)](https://pypi.org/project/agent-tool-parser/)
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://pypi.org/)
-[![Crates.io](https://img.shields.io/badge/crates.io-v0.1.3-orange.svg)](https://crates.io/crates/agent-tool-parser-core)
+[![Crates.io](https://img.shields.io/badge/crates.io-v0.1.4-orange.svg)](https://crates.io/crates/agent-tool-parser-core)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-red.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)]()
@@ -146,6 +146,98 @@ async def handle_parallel_generation(model_output: str):
     return await asyncio.gather(*tasks, return_exceptions=True)
 ```
 
+### Pattern 5: KV-Cache Invariance & Turn Buffer Canonicalization
+In multi-turn agent loops running on vLLM or SGLang, permuted JSON argument keys (e.g. `{"b": 2, "a": 1}` vs `{"a": 1, "b": 2}`) invalidate prefix KV-caches and trigger expensive prompt recomputation. Canonicalizing tool calls ensures bit-level prefix invariance:
+
+```python
+from agent_tool_parser import canonicalize_tool_calls, parse_tool_call
+
+# 1. Convert parsed ToolCall directly into canonical OpenAI format
+call = parse_tool_call(model_raw_output)
+openai_tool_call = call.to_openai_tool_call()  # Deterministic sorted keys
+
+# 2. Canonicalize an entire conversation turn buffer before dispatching to inference
+messages[-1]["tool_calls"] = canonicalize_tool_calls(messages[-1]["tool_calls"])
+```
+
+### Pattern 6: Zero-Copy Structural Scan (SilentJSON Multi-GB/s Routing)
+When filtering, routing, or authorizing tool calls at gateway speeds without incurring the latency and memory overhead of full JSON DOM deserialization:
+
+```python
+from agent_tool_parser import extract_raw_tool_calls
+
+# Fast structural scan: extracts tool name and raw unparsed arguments directly from slices
+raw_calls = extract_raw_tool_calls(stream_or_message_text)
+
+for raw in raw_calls:
+    # 1. Early security policy and permission routing (multi-GB/s throughput)
+    if raw.name not in ALLOWED_GATEWAY_TOOLS:
+        raise PermissionError(f"Unauthorized tool invocation: {raw.name}")
+
+    # 2. Deserialization on demand only when dispatching
+    args = raw.parse_args()
+    execute_tool(raw.name, args)
+```
+
+### Pattern 7: Token-by-Token Event-Driven Streaming
+When consuming streaming responses token-by-token (via SSE or async iterators), `StreamingToolParser` emits real-time events for text, thinking blocks, early tool starts, argument deltas, and completed calls:
+
+```python
+from agent_tool_parser import StreamingToolParser
+
+parser = StreamingToolParser()
+
+async for chunk in model_stream:
+    for event in parser.feed(chunk.text):
+        if event.is_text:
+            await stream_to_client(event.text)
+        elif event.is_thinking:
+            await stream_thought_to_ui(event.thinking)
+        elif event.is_tool_call_started:
+            # Minimal Time-To-First-Event: warm up sandbox or request user confirmation
+            await notify_ui_tool_starting(event.tool_name)
+        elif event.is_tool_call_arguments_chunk:
+            await stream_arguments_delta(event.delta)
+        elif event.is_tool_call_completed:
+            await dispatch_tool_execution(event.tool_call)
+
+# Flush any trailing tokens and recover truncated calls on stream cutoff
+for event in parser.finish():
+    if event.is_tool_call_completed:
+        await dispatch_tool_execution(event.tool_call)
+```
+
+### Pattern 8: Cross-Framework Semantic Categorization & Permission Gating
+When building multi-framework autonomous agents (OpenHands, Claude Code, Cursor, Aider), tool names and argument schemes vary (`str_replace` vs `edit_file`, `file_path` vs `path`). `agent-tool-parser` provides canonical semantic categories (`EDIT`, `EXEC`, `READ`, `SEARCH`, `TEST`, `SUBMIT`, `L0_ACCEL`), sub-command inspection for bash tools (distinguishing test runs like `pytest` from file mutations like `patch` / `sed`), and parameter normalizers:
+
+```python
+from agent_tool_parser import ToolCategory, parse_tool_call
+
+call = parse_tool_call(model_output)
+
+# 1. Semantic inspection properties
+print(call.category)          # ToolCategory.EDIT, ToolCategory.TEST, etc.
+print(call.is_mutation)       # True if the tool modifies files or code
+print(call.is_verification)   # True if running test suites or verification
+print(call.is_execution)      # True for shell / bash execution
+
+# 2. Canonical argument & tool name normalization
+print(call.normalized_name)   # Canonical lowercase name
+print(call.normalized_args)   # Canonicalized keys ('file_path' -> 'path', 'cmd' -> 'command')
+```
+
+### Pattern 9: Safe SIMD Hardware Architecture Detection
+To prevent illegal instruction (`SIGILL`) crashes when deploying compiled native binaries across heterogeneous virtualization environments (AWS Graviton, Google Cloud, Docker), `detect_vector_engine` inspects CPU vector capabilities safely at runtime:
+
+```python
+from agent_tool_parser import detect_vector_engine, CpuVectorEngine
+
+engine = detect_vector_engine()
+# Returns CpuVectorEngine.Avx2_256, Sse42_128, Neon_128, or Scalar_Fallback
+print(f"Detected vector engine: {engine}")
+```
+
+
 ---
 
 ## Installation
@@ -161,6 +253,19 @@ pip install "agent-tool-parser[repair]"   # installs json-repair for advanced co
 
 # Go module
 go get github.com/inboost-dev/agent-tool-parser/bindings/go/agenttoolparser
+```
+
+### Dev & Nightly Builds (Pre-compiled for downstream dependencies)
+Downstream projects tracking active development on the `dev` branch can download pre-compiled native wheels and C libraries directly without requiring local Rust toolchains or recompiling from source:
+
+```bash
+# Python: download pre-built wheels bundle from rolling nightly release
+curl -LO https://github.com/inboost-dev/agent-tool-parser/releases/download/nightly/agent-tool-parser-wheels.zip
+unzip agent-tool-parser-wheels.zip && pip install *.whl
+
+# C/C++: download pre-compiled shared library and headers
+curl -LO https://github.com/inboost-dev/agent-tool-parser/releases/download/nightly/agent-tool-parser-c-linux-x86_64.tar.gz
+tar -xzf agent-tool-parser-c-linux-x86_64.tar.gz -C ./libs/
 ```
 
 ---
@@ -266,7 +371,7 @@ agent-tool-parser/
 
 ### Engine Dispatch & Synchronization
 
-- **Parity Guarantee**: Both the pure-Python and Rust core engines pass the exact same validation suite (104 Python unit tests, 58 Rust unit/integration/benchmark tests, and 240+ differential parity assertions) covering all supported formats, error handling, parameter aliases, and degenerate/adversarial input texts.
+- **Parity Guarantee**: Both the pure-Python and Rust core engines pass the exact same validation suite (145 Python unit & parity tests, 92 Rust unit/integration/benchmark tests, and 260+ differential parity assertions) covering all supported formats, error handling, parameter aliases, and degenerate/adversarial input texts.
 - **Zero-Compile Fallback**: If the compiled native extension is not present (or when `AGENT_TOOL_PARSER_NO_EXT=1` is set in the environment), the package operates in pure Python with zero external dependencies.
 - **Compiled Acceleration**: When the compiled extension is available, parsing execution occurs entirely in compiled native code with sub-millisecond execution times.
 
@@ -313,6 +418,60 @@ Standalone utility for resilient JSON decoding. Resolves trailing commas, single
 
 ---
 
+### KV-Cache Canonicalization Utilities
+
+#### `canonicalize_tool_calls(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]`
+Recursively sorts argument keys and performs stable sorting of tool calls by function name and call ID for multi-turn KV-cache preservation.
+
+#### `canonical_json_dumps(obj: Any) -> str`
+Serializes any dictionary, list, or primitive into a deterministic JSON string with alphabetically sorted keys and compact whitespace (`separators=(',', ':')`).
+
+#### `canonical_sort_keys(obj: Any) -> Any`
+Recursively reorders dictionary keys alphabetically while preserving original list order.
+
+#### `canonicalize_arguments_string(args_str: str) -> str`
+Parses and re-serializes a raw JSON argument string into compact, key-sorted canonical form.
+
+#### `ToolCall.to_canonical_json() -> str`
+Serializes `call.args` directly into a canonical JSON string with sorted keys.
+
+#### `ToolCall.to_openai_tool_call(call_id: Optional[str] = None, canonical: bool = True) -> dict[str, Any]`
+Converts the `ToolCall` instance into an OpenAI-compatible `{"id": ..., "type": "function", "function": {"name": ..., "arguments": ...}}` dictionary.
+
+---
+
+### Semantic Categorization & Action Inspection
+
+#### `categorize_tool(name: str, args: Optional[dict[str, Any]] = None) -> ToolCategory`
+Determines the semantic category (`EDIT`, `EXEC`, `READ`, `SEARCH`, `TEST`, `SUBMIT`, `L0_ACCEL`, `UNKNOWN`). For execution tools (`bash`), automatically inspects command arguments to disambiguate test suites (`pytest`, `unittest`) and file mutations (`git apply`, redirection).
+
+#### `normalize_tool_name(raw_name: str) -> str`
+Resolves canonical lowercase tool name across agent framework variations (`execute_bash` -> `bash`, `notebookedit` -> `notebookedit`).
+
+#### `normalize_tool_args(args: dict[str, Any]) -> dict[str, Any]`
+Normalizes parameter keys across common aliases (`file_path` / `filepath` / `filename` -> `path`, `old_string` -> `old_str`, `cmd` -> `command`).
+
+#### `ToolCall` Semantic Inspection Properties
+- `call.category`: Canonical `ToolCategory` enum.
+- `call.is_mutation`: `True` if tool mutates files or code on disk.
+- `call.is_verification`: `True` if tool runs tests or assertion checks.
+- `call.is_execution`: `True` for shell / bash command execution.
+- `call.is_read`: `True` for inspection / file read tools.
+- `call.is_search`: `True` for search / AST grep tools.
+- `call.is_submit`: `True` for task completion / patch submission tools.
+
+---
+
+### Resilient Cleaners & Hardware SIMD Detection
+
+#### `repair_unescaped_quotes(s: str) -> str`
+Heuristically repairs unescaped inner double quotes inside JSON string values commonly emitted by code-editing and shell execution agents.
+
+#### `detect_vector_engine() -> CpuVectorEngine`
+Detects active runtime CPU SIMD vector engine (`Avx2_256`, `Sse42_128`, `Neon_128`, or `Scalar_Fallback`) safely without risking illegal instruction crashes on virtualized cloud hardware.
+
+---
+
 ### Object-Oriented Interface: `ToolParser`
 
 The `ToolParser` class allows setting persistent validation rules, allowed tool sets, and parameter mappings across calls:
@@ -349,9 +508,9 @@ Measurements conducted on Python 3.12 (AMD EPYC, single execution thread):
 
 All pull requests and commits to `main` are continuously validated across runtimes and target architectures in GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
 
-- **Python Multi-Version Matrix**: Python 3.9, 3.10, 3.11, 3.12, and 3.13 running `ruff`, `mypy`, and the complete 104-test suite under pure-Python fallback (`AGENT_TOOL_PARSER_NO_EXT=1`).
+- **Python Multi-Version Matrix**: Python 3.9, 3.10, 3.11, 3.12, and 3.13 running `ruff`, `mypy`, and the complete 114-test suite under pure-Python fallback (`AGENT_TOOL_PARSER_NO_EXT=1`).
 - **Rust Core & Multi-Language Bindings**:
-  - Rust stable toolchain: `cargo fmt`, `cargo clippy -D warnings`, and 58 unit, integration, and benchmark tests.
+  - Rust stable toolchain: `cargo fmt`, `cargo clippy -D warnings`, and 65 unit, integration, and benchmark tests.
   - C-ABI shared library compilation (`libagent_tool_parser_c.so`) and C unit tests.
   - Native Go binding integration tests (`go test -v ./bindings/go/...`).
   - WebAssembly compilation target verification (`wasm32-unknown-unknown` release build).

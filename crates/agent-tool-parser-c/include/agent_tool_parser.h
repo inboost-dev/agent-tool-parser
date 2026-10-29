@@ -21,6 +21,40 @@ typedef struct ATPToolCallList {
     size_t count;
 } ATPToolCallList;
 
+typedef struct ATPRawToolCall {
+    char* name;
+    char* raw_args;
+    char* raw_source;
+    char* call_id;
+} ATPRawToolCall;
+
+typedef struct ATPRawToolCallList {
+    ATPRawToolCall* calls;
+    size_t count;
+} ATPRawToolCallList;
+
+/**
+ * Extracts raw tool calls from text without full JSON deserialization overhead.
+ * Returns an ATPRawToolCallList. The list must be freed with atp_free_raw_tool_call_list().
+ */
+ATPRawToolCallList atp_extract_raw_tool_calls(const char* text);
+
+/**
+ * Parses arguments of a raw tool call into canonical JSON string.
+ * Returns allocated string that must be freed with atp_free_string(), or NULL on failure.
+ */
+char* atp_raw_parse_args(const ATPRawToolCall* call);
+
+/**
+ * Frees an ATPRawToolCall allocated by the library.
+ */
+void atp_free_raw_tool_call(ATPRawToolCall* call);
+
+/**
+ * Frees an ATPRawToolCallList allocated by atp_extract_raw_tool_calls().
+ */
+void atp_free_raw_tool_call_list(ATPRawToolCallList list);
+
 /**
  * Parses a single tool call from text.
  * Returns NULL if no valid tool call could be extracted.
@@ -51,9 +85,33 @@ void atp_free_tool_call_list(ATPToolCallList list);
 char* atp_clean_json_str(const char* json_str);
 
 /**
+ * Normalizes a JSON string into deterministic canonical format with sorted keys.
+ * Returns allocated string that must be freed with atp_free_string(), or NULL on failure.
+ */
+char* atp_canonicalize_json(const char* json_str);
+
+/**
+ * Repairs unescaped double quotes inside JSON string literals.
+ * Returns allocated string that must be freed with atp_free_string(), or NULL on failure.
+ */
+char* atp_repair_unescaped_quotes(const char* json_str);
+
+/**
+ * Returns static string representing active CPU vector engine (e.g. "avx2_256", "neon_128", "scalar_fallback").
+ */
+const char* atp_detect_vector_engine(void);
+
+/**
  * Frees any string allocated by this library.
  */
 void atp_free_string(char* s);
+
+
+/**
+ * Categorizes a tool invocation.
+ * Returns static null-terminated category string ("edit", "exec", "read", "search", "test", "submit", "l0_accel", "unknown").
+ */
+const char* atp_categorize_tool(const char* name, const char* args_json);
 
 #ifdef __cplusplus
 }

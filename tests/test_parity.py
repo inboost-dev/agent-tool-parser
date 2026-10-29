@@ -10,7 +10,10 @@ import json
 import unittest
 
 import agent_tool_parser.cleaners as py_cleaners
+import agent_tool_parser.models as py_models
 import agent_tool_parser.parser as py_parser
+import agent_tool_parser.raw as py_raw
+import agent_tool_parser.streaming as py_streaming
 from agent_tool_parser.models import ToolError as PyToolError
 
 try:
@@ -367,6 +370,131 @@ class TestDualEngineParity(unittest.TestCase):
             acc_norm = acc.normalize_truncated_json_prefix(inp)
             py_norm = py_cleaners.normalize_truncated_json_prefix(inp)
             self.assertEqual(acc_norm, py_norm)
+
+    def test_parity_raw_extraction(self):
+        """Parity for extract_raw_tool_calls across varied formats."""
+        samples = [
+            '<invoke name="read_file">{"path": "foo.py"}</invoke>',
+            "<｜DSML｜tool name=search><｜DSML｜parameter name=query>deep learning</｜DSML｜parameter></｜DSML｜tool>",
+            '<tool_call>{"name": "calc", "arguments": {"x": 42}}</tool_call>',
+            '```json\n{"name": "bash", "arguments": {"cmd": "ls -la"}}\n```',
+            "Plain text without any tool calls at all.",
+        ]
+        for s in samples:
+            acc_raw = acc.extract_raw_tool_calls(s)
+            py_raw_calls = py_raw.extract_raw_tool_calls(s)
+            self.assertEqual(len(acc_raw), len(py_raw_calls))
+            for ar, pr in zip(acc_raw, py_raw_calls):
+                self.assertEqual(ar.name, pr.name)
+                self.assertEqual(ar.parse_args(), pr.parse_args())
+                self.assertEqual(ar.to_tool_call().name, pr.to_tool_call().name)
+                self.assertEqual(ar.to_tool_call().args, pr.to_tool_call().args)
+
+    def test_parity_streaming(self):
+        """Parity for StreamingToolParser event sequences."""
+        chunks = [
+            "Hello!\n<think>analyzing query</think>\nI will execute:\n",
+            "<｜DSML｜tool name=search>\n",
+            "<｜DSML｜parameter name=q string=true>rust agent</｜DSML｜parameter>\n",
+            "</｜DSML｜tool>\nDone!",
+        ]
+        acc_parser = acc.StreamingToolParser()
+        py_parser = py_streaming.StreamingToolParser()
+
+        acc_events = []
+        py_events = []
+        for ch in chunks:
+            acc_events.extend(acc_parser.feed(ch))
+            py_events.extend(py_parser.feed(ch))
+
+        acc_events.extend(acc_parser.finish())
+        py_events.extend(py_parser.finish())
+
+        self.assertEqual(len(acc_events), len(py_events))
+        for ae, pe in zip(acc_events, py_events):
+            self.assertEqual(ae.event_type, pe.event_type)
+            self.assertEqual(ae.is_text, pe.is_text)
+            self.assertEqual(ae.is_thinking, pe.is_thinking)
+            self.assertEqual(ae.is_tool_call, pe.is_tool_call)
+            self.assertEqual(ae.content, pe.content)
+            self.assertEqual(ae.tool_name, pe.tool_name)
+
+    def test_parity_unescaped_quote_guard(self):
+        """Parity for repair_unescaped_quotes and safe_json_loads."""
+        samples = [
+            '{"name": "str_replace", "arguments": {"new_str": "print("Hello world")"}}',
+            '{"name": "str_replace", "arguments": {"new_str": "print("Hello")", "path": "main.py"}}',
+            '{"command": "echo "hello" >> log.txt"}',
+            '{"new_str": "print(\\"Hello world\\")"}',
+            '{"code": "x = \\"hello\\" + \\"world\\""}',
+        ]
+        for s in samples:
+            acc_rep = acc.repair_unescaped_quotes(s)
+            py_rep = py_cleaners.repair_unescaped_quotes(s)
+            self.assertEqual(acc_rep, py_rep)
+
+            acc_val = acc.safe_json_loads(s)
+            py_val = py_cleaners.safe_json_loads(s)
+            self.assertEqual(acc_val, py_val)
+
+    def test_parity_python_calls_multiline_and_russian(self):
+        """Parity for multiline Python calls, triple quotes, and Russian action syntax."""
+        samples = [
+            '''```python
+str_replace(
+    path="lib/matplotlib/dates.py",
+    old_str="""def date2num(d):
+    return d""",
+    new_str="""def date2num(d):
+    return _date2num(d)"""
+)
+```''',
+            'Вызов функции: edit_file(path="src/models.py", command="replace")',
+            'Действие: read_file(path="README.md")',
+            """<действие: str_replace>
+{"path": "lib/dates.py", "old_str": "foo", "new_str": "bar"}
+</действие>""",
+            """<действие name="read_file">
+<параметр name="path">src/main.rs</параметр>
+</действие>""",
+        ]
+        for s in samples:
+            acc_call = acc.parse_tool_call(s)
+            py_call = py_parser.parse_tool_call(s)
+            self.assertEqual(acc_call.name, py_call.name)
+            self.assertEqual(acc_call.args, py_call.args)
+
+    def test_parity_semantics_and_tool_call_methods(self):
+        """Differential parity for ToolCategory, normalization, predicates, to_dict, and repr."""
+        test_cases = [
+            ("Edit", {"file_path": "a.py", "old_string": "x", "new_string": "y"}),
+            ("bash", {"command": "pytest -v tests/"}),
+            ("bash", {"command": "git apply patch.diff"}),
+            ("bash", {"command": "ls -la"}),
+            ("read_file", {"filepath": "README.md"}),
+            ("grep_search", {"query_string": "def foo"}),
+            ("submit", {}),
+            ("l0_verify_syntax", {"path": "main.py"}),
+        ]
+        for name, raw_args in test_cases:
+            acc_tc = acc.ToolCall(name, raw_args)
+            py_tc = py_models.ToolCall(name, raw_args)
+
+            self.assertEqual(
+                acc_tc.category,
+                py_tc.category.value if hasattr(py_tc.category, "value") else py_tc.category,
+            )
+            self.assertEqual(acc_tc.normalized_name, py_tc.normalized_name)
+            self.assertEqual(acc_tc.normalized_args, py_tc.normalized_args)
+            self.assertEqual(acc_tc.is_mutation, py_tc.is_mutation)
+            self.assertEqual(acc_tc.is_verification, py_tc.is_verification)
+            self.assertEqual(acc_tc.is_execution, py_tc.is_execution)
+            self.assertEqual(acc_tc.is_read, py_tc.is_read)
+            self.assertEqual(acc_tc.is_search, py_tc.is_search)
+            self.assertEqual(acc_tc.is_submit, py_tc.is_submit)
+            self.assertEqual(acc_tc.to_dict(), py_tc.to_dict())
+            self.assertIn(f"name={py_tc.name!r}", repr(acc_tc))
+            self.assertIn(f"category={py_tc.category.value!r}", repr(acc_tc))
 
 
 if __name__ == "__main__":

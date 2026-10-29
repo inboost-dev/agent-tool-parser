@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.1.4] - 2026-10-29
+
+### Added
+- **Semantic Tool Categorization & Normalization (`ToolCategory`, `categorize_tool`, `normalize_tool_name`, `normalize_tool_args`)**:
+  - Unified semantic categorization model across agent frameworks (OpenHands, Claude Code, Cursor, Aider, InBoost LongRun) with canonical categories: `EDIT`, `EXEC`, `READ`, `SEARCH`, `TEST`, `SUBMIT`, `L0_ACCEL`.
+  - Contextual bash command inspection to accurately disambiguate verification tests (`pytest`, `unittest`, `cargo test`) and mutations (`git apply`, redirection, `patch`).
+  - Cross-agent argument alias normalization (`file_path` / `filepath` -> `path`, `old_string` -> `old_str`, `new_string` -> `new_str`, `cmd` -> `command`).
+  - Added semantic inspection properties on `ToolCall`: `.category`, `.normalized_name`, `.normalized_args`, `.is_mutation`, `.is_verification`, `.is_execution`, `.is_read`, `.is_search`, `.is_submit`.
+  - Full dual-engine parity across Rust Core (`agent-tool-parser-core`), C ABI, WebAssembly, Go, PyO3 Native Acceleration (`agent-tool-parser-py`), and pure-Python reference fallback.
+- **Hardware Architecture & SIMD Vector Engine Detection (`detect_vector_engine`, `CpuVectorEngine`)**:
+  - Safe runtime SIMD architecture detection (`Avx2_256`, `Sse42_128`, `Neon_128`, `Scalar_Fallback`) eliminating SIGILL crash risks on virtualized cloud and containerized CPUs.
+  - Accelerated byte/delimiter scanning routines (`simd_find_byte`, `simd_find_subsequence`) powered by `memchr = "2.7"`.
+  - Implemented with full parity across Rust Core, PyO3 (`_accelerated`), C-ABI (`atp_detect_vector_engine`), WebAssembly, Go (`DetectVectorEngine`), and pure-Python reference fallback.
+- **Python-in-Markdown & Multilingual Action Call Extractor**:
+  - Robust parser for multiline Python function call syntax within markdown code blocks (```` ```python ... ``` ````) and conversational text.
+  - Full support for triple-quoted multiline string literals (`"""..."""` and `'''...'''`), preserving embedded raw newlines, quotes, and whitespace formatting (e.g. for `str_replace` / `edit_file` diff editing).
+  - Native support for localized LLM invocation prefixes (`Вызов функции: ...`, `Действие: ...`) and multilingual XML/DSML tags (`<действие: ...>`, `<вызов_функции>`, `<функция>`, `<инструмент>`, `<параметр>`).
+  - Dual-engine parity verified across Rust Core and pure-Python fallback.
+- **Unescaped Quote Guard (`repair_unescaped_quotes`)**:
+  - Resilient heuristic repair for LLMs omitting escape slashes on inner double quotes within JSON string values (e.g. `{"arguments": {"new_str": "print("Hello world")"}}` or `{"command": "echo "hello" >> log.txt"}`).
+  - Integrated transparently into `safe_json_loads`, `clean_json_str`, and the main parsing pipelines across Rust Core, PyO3, C-ABI (`atp_repair_unescaped_quotes`), WebAssembly, Go (`RepairUnescapedQuotes`), and pure-Python fallback.
+- **Zero-Copy Structural Scan (`RawToolCall` & `extract_raw_tool_calls`)**:
+  - High-throughput structural extractor inspired by SilentJSON zero-copy scanning: locates tool calls and isolates `(name, raw_args, raw_source, call_id)` directly from slices without immediate JSON tree deserialization.
+  - Enables multi-GB/s routing, policy checks, and early sandbox warming before full deserialization overhead.
+  - On-demand `.parse_args()` and `.to_tool_call()` methods with fault-tolerant repairs for downstream execution.
+  - Implemented with full parity across Rust Core (`agent-tool-parser-core`), PyO3 (`_accelerated`), C-ABI (`atp_extract_raw_tool_calls`, `atp_raw_parse_args`), Go (`ExtractRawToolCalls`), WebAssembly, and pure-Python reference fallback.
+- **Event-Driven Streaming Parser (`StreamingToolParser` & `StreamEvent`)**:
+  - Real-time token-by-token stream consumption supporting heterogeneous LLM formats (DeepSeek DSML, Qwen Action, Claude XML, Markdown JSON, ReAct, native tokens).
+  - Emits real-time event types:
+    - `text`: Plain user-facing text emitted progressively.
+    - `thinking`: Reasoning deliberation emitted from within `<think>...</think>` blocks.
+    - `tool_call_started`: Emitted immediately upon resolving tool name (minimizing Time-To-First-Event for sandbox initialization and permission confirmation).
+    - `tool_call_arguments_chunk`: Incremental raw argument deltas streamed as generated.
+    - `tool_call_completed`: Complete parsed invocation with auto-repair on closing boundary or stream cutoff.
+  - Robust against character-by-character chunking, multi-byte UTF-8 boundaries, and unclosed stream cutoffs.
+- **KV-Cache Canonicalization & Turn Buffer Normalization**:
+  - Added deterministic JSON key sorting and compact serialization (`canonical_json_dumps`, `canonical_sort_keys`) to guarantee bit-level prefix invariance for vLLM, SGLang, and multi-turn agent KV caching.
+  - Added argument string canonicalization (`canonicalize_arguments_string`) for normalizing raw JSON arguments into canonical compact JSON.
+  - Added tool call array normalization and stable sorting (`canonicalize_tool_calls`), ensuring multi-tool calling responses are stably sorted by function name and call ID.
+  - Added helper methods on `ToolCall`:
+    - `to_canonical_json()`: Serializes tool arguments into a deterministic, sorted-key JSON string.
+    - `to_openai_tool_call(call_id=None, canonical=True)`: Converts `ToolCall` directly into standard OpenAI `tool_call` schema format.
+  - Full cross-runtime parity implemented and verified across Rust Core (`agent-tool-parser-core`), C ABI (`agent-tool-parser-c`), Go (`bindings/go/agenttoolparser`), PyO3 Native Acceleration (`agent-tool-parser-py`), WebAssembly (`agent-tool-parser-wasm`), and pure-Python reference fallback (`src/agent_tool_parser/canonical.py`).
 
 ## [0.1.3] - 2026-09-16
 

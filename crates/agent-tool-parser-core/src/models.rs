@@ -25,6 +25,77 @@ impl ToolCall {
             raw_source: raw_source.into(),
         }
     }
+
+    /// Serializes tool arguments into deterministic, sorted-key JSON string for KV-cache invariance.
+    pub fn to_canonical_json(&self) -> String {
+        crate::canonical::canonical_json_dumps(&self.args)
+    }
+
+    /// Converts ToolCall into standard OpenAI tool_call schema object.
+    pub fn to_openai_tool_call(&self, call_id: Option<&str>, canonical: bool) -> serde_json::Value {
+        let id = match call_id {
+            Some(i) => i.to_string(),
+            None => format!("call_{}", self.name),
+        };
+        let arguments = if canonical {
+            self.to_canonical_json()
+        } else {
+            self.args.to_string()
+        };
+        serde_json::json!({
+            "id": id,
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "arguments": arguments,
+            }
+        })
+    }
+
+    /// Semantic category of this tool call.
+    pub fn category(&self) -> crate::semantics::ToolCategory {
+        crate::semantics::categorize_tool(&self.name, Some(&self.args))
+    }
+
+    /// Canonicalized lowercase tool name.
+    pub fn normalized_name(&self) -> String {
+        crate::semantics::normalize_tool_name(&self.name)
+    }
+
+    /// Arguments with parameter aliases resolved.
+    pub fn normalized_args(&self) -> serde_json::Value {
+        crate::semantics::normalize_tool_args(&self.args)
+    }
+
+    /// Whether this tool modifies files or code on disk.
+    pub fn is_mutation(&self) -> bool {
+        crate::semantics::is_mutation_tool(&self.name, Some(&self.args))
+    }
+
+    /// Whether this tool executes test suites or verification checks.
+    pub fn is_verification(&self) -> bool {
+        crate::semantics::is_verification_tool(&self.name, Some(&self.args))
+    }
+
+    /// Whether this tool executes system shell commands.
+    pub fn is_execution(&self) -> bool {
+        crate::semantics::is_execution_tool(&self.name)
+    }
+
+    /// Whether this tool is an inspection or reading tool.
+    pub fn is_read(&self) -> bool {
+        crate::semantics::is_read_tool(&self.name)
+    }
+
+    /// Whether this tool searches the codebase or directory tree.
+    pub fn is_search(&self) -> bool {
+        crate::semantics::is_search_tool(&self.name)
+    }
+
+    /// Whether this tool submits or concludes the task.
+    pub fn is_submit(&self) -> bool {
+        crate::semantics::is_submit_tool(&self.name)
+    }
 }
 
 /// Raised when no valid tool call could be extracted or validation failed.

@@ -5,18 +5,37 @@
 //! Licensed under the MIT License. Provided "AS IS" without warranty of any kind.
 //! See LICENSE and README.md for full terms and execution safety disclaimers.
 
+pub mod canonical;
 pub mod cleaners;
 pub mod models;
 pub mod parser;
+pub mod python_calls;
+pub mod raw;
+pub mod semantics;
+pub mod streaming;
+pub mod vector;
 
+pub use canonical::{
+    canonical_json_dumps, canonical_sort_keys, canonicalize_arguments_string,
+    canonicalize_tool_calls,
+};
 pub use cleaners::{
     clean_json_str, clean_param_val, extract_json_objects, normalize_truncated_json_prefix,
-    safe_json_loads, strip_thinking,
+    repair_unescaped_quotes, safe_json_loads, strip_thinking,
 };
+
 pub use models::{ToolCall, ToolError, ToolParserConfig};
 pub use parser::{
     parse_tool_call, parse_tool_calls, try_parse_tool_call, try_parse_tool_calls, ToolParser,
 };
+pub use python_calls::{extract_python_function_calls, ParsedPythonCall};
+pub use raw::{extract_raw_tool_calls, try_extract_raw_tool_call, RawToolCall};
+pub use semantics::{
+    categorize_tool, is_execution_tool, is_mutation_tool, is_read_tool, is_search_tool,
+    is_submit_tool, is_verification_tool, normalize_tool_args, normalize_tool_name, ToolCategory,
+};
+pub use streaming::{StreamEvent, StreamingToolParser};
+pub use vector::{detect_vector_engine, CpuVectorEngine};
 
 #[cfg(test)]
 mod tests {

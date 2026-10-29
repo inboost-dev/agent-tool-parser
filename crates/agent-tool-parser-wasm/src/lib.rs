@@ -27,6 +27,18 @@ pub fn parse_tool_calls(text: &str) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn extract_raw_tool_calls(text: &str) -> Result<JsValue, JsValue> {
+    let calls = agent_tool_parser_core::extract_raw_tool_calls(text);
+    serde_wasm_bindgen::to_value(&calls).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+#[wasm_bindgen]
+pub fn try_extract_raw_tool_call(text: &str) -> Result<JsValue, JsValue> {
+    let call = agent_tool_parser_core::try_extract_raw_tool_call(text);
+    serde_wasm_bindgen::to_value(&call).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+#[wasm_bindgen]
 pub fn clean_json_str(s: &str) -> String {
     cleaners::clean_json_str(s)
 }
@@ -34,6 +46,31 @@ pub fn clean_json_str(s: &str) -> String {
 #[wasm_bindgen]
 pub fn strip_thinking(text: &str) -> String {
     cleaners::strip_thinking(text)
+}
+
+#[wasm_bindgen]
+pub fn canonicalize_json(text: &str) -> String {
+    agent_tool_parser_core::canonicalize_arguments_string(text)
+}
+
+#[wasm_bindgen]
+pub fn repair_unescaped_quotes(text: &str) -> String {
+    cleaners::repair_unescaped_quotes(text)
+}
+
+#[wasm_bindgen]
+pub fn detect_vector_engine() -> String {
+    agent_tool_parser_core::detect_vector_engine()
+        .as_str()
+        .to_string()
+}
+
+#[wasm_bindgen]
+pub fn categorize_tool(name: &str, args_json: Option<String>) -> String {
+    let args_val = args_json.and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
+    agent_tool_parser_core::semantics::categorize_tool(name, args_val.as_ref())
+        .as_str()
+        .to_string()
 }
 
 #[cfg(test)]
@@ -53,5 +90,32 @@ mod tests {
     fn test_wasm_strip_thinking() {
         let text = "<think>Analyzing query...</think>Action: run";
         assert_eq!(strip_thinking(text), "Action: run");
+    }
+
+    #[test]
+    fn test_wasm_canonicalize_json() {
+        let raw = r#"{"z": 10, "a": 2}"#;
+        assert_eq!(canonicalize_json(raw), r#"{"a":2,"z":10}"#);
+    }
+
+    #[test]
+    fn test_wasm_repair_unescaped_quotes() {
+        let raw = r#"{"cmd": "echo "hello""}"#;
+        assert_eq!(repair_unescaped_quotes(raw), r#"{"cmd": "echo \"hello\""}"#);
+    }
+
+    #[test]
+    fn test_wasm_categorize_tool() {
+        assert_eq!(categorize_tool("edit", None), "edit");
+        assert_eq!(
+            categorize_tool("bash", Some(r#"{"command": "pytest"}"#.to_string())),
+            "test"
+        );
+    }
+
+    #[test]
+    fn test_wasm_detect_vector_engine() {
+        let engine = detect_vector_engine();
+        assert!(!engine.is_empty());
     }
 }

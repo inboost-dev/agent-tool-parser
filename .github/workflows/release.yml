@@ -260,3 +260,24 @@ jobs:
           echo "Pinging proxy.golang.org to index Go module..."
           sleep 2
           curl -s "https://proxy.golang.org/github.com/inboost-dev/agent-tool-parser/bindings/go/agenttoolparser/@v/${TAG}.info" || true
+
+  cleanup-artifacts:
+    name: Cleanup Intermediate Workflow Artifacts
+    needs: [github-release, publish-pypi, build-c-binaries]
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      actions: write
+    steps:
+      - name: Cleanup intermediate workflow artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Cleaning up intermediate workflow artifacts for current run..."
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[].id' | while read -r artifact_id; do
+            if [ -n "$artifact_id" ]; then
+              echo "Deleting artifact id $artifact_id..."
+              gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$artifact_id" || true
+            fi
+          done
+          echo "Cleanup complete: 0 intermediate artifacts remaining."

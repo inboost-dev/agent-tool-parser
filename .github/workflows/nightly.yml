@@ -1,0 +1,258 @@
+name: Nightly Dev Build
+
+on:
+  push:
+    branches: [ dev ]
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  build-python:
+    name: Build Python Wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            build_sdist: true
+          - os: macos-latest
+            build_sdist: false
+          - os: windows-latest
+            build_sdist: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install maturin
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin
+
+      - name: Build wheel with native Rust extension
+        run: maturin build --release --out dist
+
+      - name: Build sdist (Linux only)
+        if: matrix.build_sdist
+        run: maturin sdist --out dist
+
+      - name: Upload Python distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build-c-binaries:
+    name: Build C Libraries (${{ matrix.target_name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target_name: linux-x86_64
+            lib_file: libagent_tool_parser_c.so
+            is_windows: false
+          - os: macos-latest
+            target_name: macos-universal
+            lib_file: libagent_tool_parser_c.dylib
+            is_windows: false
+          - os: windows-latest
+            target_name: windows-x86_64
+            lib_file: agent_tool_parser_c.dll
+            is_windows: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build C shared library
+        run: cargo build --release -p agent-tool-parser-c
+
+      - name: Package C distribution (Unix)
+        if: ${{ !matrix.is_windows }}
+        run: |
+          mkdir -p c-dist/include c-dist/lib
+          cp crates/agent-tool-parser-c/include/agent_tool_parser.h c-dist/include/
+          cp target/release/${{ matrix.lib_file }} c-dist/lib/
+          cp LICENSE README.md c-dist/
+          tar -czvf agent-tool-parser-c-${{ matrix.target_name }}.tar.gz -C c-dist .
+
+      - name: Package C distribution (Windows)
+        if: ${{ matrix.is_windows }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path c-dist/include, c-dist/lib -Force
+          Copy-Item crates/agent-tool-parser-c/include/agent_tool_parser.h c-dist/include/
+          Copy-Item target/release/${{ matrix.lib_file }} c-dist/lib/
+          Copy-Item LICENSE, README.md c-dist/
+          Compress-Archive -Path c-dist/* -DestinationPath agent-tool-parser-c-${{ matrix.target_name }}.zip
+
+      - name: Upload C binary artifacts (Unix)
+        if: ${{ !matrix.is_windows }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-binaries-${{ matrix.target_name }}
+          path: agent-tool-parser-c-${{ matrix.target_name }}.tar.gz
+          retention-days: 1
+
+      - name: Upload C binary artifacts (Windows)
+        if: ${{ matrix.is_windows }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-binaries-${{ matrix.target_name }}
+          path: agent-tool-parser-c-${{ matrix.target_name }}.zip
+          retention-days: 1
+
+  test-and-verify:
+    name: Run Test Suites (Rust & Dual-Engine Python)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run Cargo Tests
+        run: cargo test --all-targets
+
+      - name: Run Python Fallback Tests
+        run: |
+          AGENT_TOOL_PARSER_NO_EXT=1 PYTHONPATH=src python -m unittest discover -s tests
+
+      - name: Test Native Python Extension
+        run: |
+          python -m pip install --upgrade pip maturin
+          pip install -e .
+          python -m unittest discover -s tests
+
+  publish-nightly:
+    name: Publish Rolling Nightly Dev Release
+    needs: [build-python, build-c-binaries, test-and-verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create release assets directory
+        run: mkdir -p release-assets
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded-artifacts
+
+      - name: Gather release assets
+        run: |
+          find downloaded-artifacts -type f -exec cp {} release-assets/ \;
+          cd release-assets
+          # Bundle all wheels into a single convenience zip
+          if ls *.whl 1> /dev/null 2>&1; then
+            zip -j agent-tool-parser-wheels.zip *.whl
+          fi
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Update Rolling Nightly Tag & Pre-Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="nightly"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_DATE=$(git log -1 --format=%cd --date=iso-strict)
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f "${TAG}" HEAD
+          git push -f origin "${TAG}"
+
+          cat << EOF | sed 's/^          //' > release-notes.md
+          ### 🌙 Automated Dev / Nightly Pre-Release (Rolling)
+
+          This is an automated rolling pre-release built directly from branch [`dev`](https://github.com/${{ github.repository }}/tree/dev).
+          - **Commit**: [`${SHORT_SHA}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - **Last Commit Date**: `${COMMIT_DATE}`
+          - **Updated at**: `$(date -u +'%Y-%m-%d %H:%M:%S UTC')`
+
+          ---
+
+          #### 📦 Download & Install (Zero Compilation Needed)
+
+          ##### Python Wheels
+          Download and install directly without Rust/C compiler:
+          ```bash
+          # Download all wheels bundle
+          curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-wheels.zip
+          unzip agent-tool-parser-wheels.zip && pip install *.whl
+          ```
+
+          ##### C / C++ Dynamic Libraries & Headers
+          ```bash
+          # Linux x86_64
+          curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-c-linux-x86_64.tar.gz
+          tar -xzf agent-tool-parser-c-linux-x86_64.tar.gz -C ./libs/
+
+          # macOS Universal
+          curl -LO https://github.com/${{ github.repository }}/releases/download/nightly/agent-tool-parser-c-macos-universal.tar.gz
+          tar -xzf agent-tool-parser-c-macos-universal.tar.gz -C ./libs/
+          ```
+
+          ---
+          *Note: This release is automatically overwritten on every new push to `dev`.*
+          EOF
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Updating existing ${TAG} release..."
+            gh release edit "${TAG}" --title "Dev / Nightly Build (rolling)" --notes-file release-notes.md --prerelease
+            gh release upload "${TAG}" release-assets/* --clobber
+          else
+            echo "Creating new ${TAG} release..."
+            gh release create "${TAG}" release-assets/* --title "Dev / Nightly Build (rolling)" --notes-file release-notes.md --prerelease
+          fi
+
+      - name: Cleanup intermediate workflow artifacts
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Cleaning up intermediate workflow artifacts for current run..."
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[].id' | while read -r artifact_id; do
+            if [ -n "$artifact_id" ]; then
+              echo "Deleting artifact id $artifact_id..."
+              gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$artifact_id" || true
+            fi
+          done
+          echo "Cleanup complete: 0 intermediate artifacts remaining."
