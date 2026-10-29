@@ -7,6 +7,7 @@ manifest-path = "crates/agent-tool-parser-py/Cargo.toml"
 python-source = "src"
 module-name = "agent_tool_parser._accelerated"
 features = ["pyo3/extension-module"]
+include = ["LICENSE"]
 
 [project]
 name = "agent-tool-parser"
