@@ -175,6 +175,11 @@ class RawToolCall:
 def extract_raw_tool_calls(text: str) -> list[RawToolCall]:
     """Extract raw tool calls from text without full JSON parsing overhead."""
     clean = strip_thinking(text)
+    lower = clean.lower()
+    if ("<tool_call>" in lower or "</tool_call>" in lower) and any(
+        t in lower for t in ("<function", "<invoke", "<action")
+    ):
+        clean = re.sub(r"</?[｜|]*(?:dsml[｜|]*)?tool_call\s*>", "", clean)
     results: list[RawToolCall] = []
 
     # 1. DSML and XML invocation blocks

@@ -167,9 +167,8 @@ pub(crate) static CHILD_TAG_FN_EQ_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?:function|tool|invoke|action|func)\s*=\s*['"]?(?P<name>[\w.:-]+)"#).unwrap()
 });
 
-pub(crate) static OUTER_TOOL_CALL_WRAPPER_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?is)<[｜|]*(?:dsml[｜|]*)?tool_call\b[^>]*>\s*(<[｜|]*(?:dsml[｜|]*)?(?:function|invoke|tool|action|call|tool_use|function_call)[=>\s].*?)\s*</[｜|]*(?:dsml[｜|]*)?tool_call\s*>"#).unwrap()
-});
+pub(crate) static TOOL_CALL_CONTAINER_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"(?is)</?[｜|]*(?:dsml[｜|]*)?tool_call\s*>"#).unwrap());
 
 static ARGUMENTS_BLOCK_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"(?is)<(?:arguments|parameters)>(.*?)(?:</(?:arguments|parameters)>|$)"#).unwrap()
@@ -659,10 +658,15 @@ impl ToolParser {
             return Vec::new();
         }
 
-        let unwrapped;
-        let text = if let Some(caps) = OUTER_TOOL_CALL_WRAPPER_RE.captures(text) {
-            unwrapped = caps.get(1).unwrap().as_str();
-            unwrapped
+        let lower = text.to_lowercase();
+        let cleaned_buf;
+        let text = if (lower.contains("<tool_call>") || lower.contains("</tool_call>"))
+            && (lower.contains("<function")
+                || lower.contains("<invoke")
+                || lower.contains("<action"))
+        {
+            cleaned_buf = TOOL_CALL_CONTAINER_RE.replace_all(text, "").into_owned();
+            &cleaned_buf
         } else {
             text
         };

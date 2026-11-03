@@ -132,10 +132,15 @@ impl RawToolCall {
 /// Extract raw tool calls from text without full JSON deserialization overhead.
 pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
     let clean = strip_thinking(text);
-    let unwrapped;
-    let clean = if let Some(caps) = crate::parser::OUTER_TOOL_CALL_WRAPPER_RE.captures(&clean) {
-        unwrapped = caps.get(1).unwrap().as_str();
-        unwrapped
+    let lower = clean.to_lowercase();
+    let cleaned_buf;
+    let clean = if (lower.contains("<tool_call>") || lower.contains("</tool_call>"))
+        && (lower.contains("<function") || lower.contains("<invoke") || lower.contains("<action"))
+    {
+        cleaned_buf = crate::parser::TOOL_CALL_CONTAINER_RE
+            .replace_all(&clean, "")
+            .into_owned();
+        &cleaned_buf
     } else {
         &clean
     };

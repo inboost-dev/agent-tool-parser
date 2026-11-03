@@ -547,6 +547,12 @@ class ToolParser:
         if "<" not in text:
             return []
 
+        lower = text.lower()
+        if ("<tool_call>" in lower or "</tool_call>" in lower) and any(
+            t in lower for t in ("<function", "<invoke", "<action")
+        ):
+            text = re.sub(r"</?[｜|]*(?:dsml[｜|]*)?tool_call\s*>", "", text)
+
         calls: list[ToolCall] = []
 
         # 1. Hermes / Kimi direct tags format: <tool_name>search</tool_name><pattern>...</pattern>
