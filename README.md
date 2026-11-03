@@ -1,9 +1,9 @@
 # agent-tool-parser ⚡
 
 [![Documentation](https://img.shields.io/badge/docs-interactive%20playground-blueviolet.svg)](https://inboost-dev.github.io/agent-tool-parser/)
-[![PyPI version](https://img.shields.io/badge/pypi-v0.1.4-blue.svg)](https://pypi.org/project/agent-tool-parser/)
+[![PyPI version](https://img.shields.io/badge/pypi-v0.1.5-blue.svg)](https://pypi.org/project/agent-tool-parser/)
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://pypi.org/)
-[![Crates.io](https://img.shields.io/badge/crates.io-v0.1.4-orange.svg)](https://crates.io/crates/agent-tool-parser-core)
+[![Crates.io](https://img.shields.io/badge/crates.io-v0.1.5-orange.svg)](https://crates.io/crates/agent-tool-parser-core)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-red.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)]()
@@ -381,6 +381,8 @@ agent-tool-parser/
 | :--- | :--- | :---: |
 | **Anthropic Claude XML** | `<tool_use><name>read_file</name><arguments>{"path": "src/core.py"}</arguments></tool_use>` | Supported |
 | **OpenAI Function Format** | `{"tool_calls": [{"type": "function", "function": {"name": "search", "arguments": "{...}"}}]}` | Supported |
+| **Qwen / Open-Weights XML** | `<function=search>\n<parameter=query>vector</parameter>\n</function>` | Supported |
+| **Container Tag Wrappers** | `<tool_call><function=search>...</function></tool_call>` | Supported |
 | **DeepSeek Native Tokens** | `<｜tool call begin｜>function=bash<｜tool sep｜>{"command": "pytest"}<｜tool call end｜>` | Supported |
 | **DeepSeek DSML** | `<｜DSML｜tool name=search><｜DSML｜parameter name=query>vector</｜DSML｜parameter>` | Supported |
 | **Qwen-Agent Tokens** | `<\|action_start\|><\|action_name\|>run<\|action_args\|>{"script": "main.py"}<\|action_end\|>` | Supported |

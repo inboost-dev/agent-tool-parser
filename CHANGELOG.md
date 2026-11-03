@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Zero-copy structural scanner support in `RawToolCall` and `extract_raw_tool_calls` for Qwen XML invocations.
   - Streaming support in `StreamingToolParser` for real-time `<function=NAME>` token consumption, start-event triggering, and truncated stream recovery.
   - Strict dual-engine parity across Rust Core (`crates/agent-tool-parser-core`), PyO3 Native Extension (`crates/agent-tool-parser-py`), C ABI, WebAssembly, and pure-Python reference fallback.
+
+### Fixed
+- **Sequential Tool Calls in Containers**:
+  - Resolved regression where multiple sequential tool invocations wrapped within outer container tags (such as `<tool_call>...<function=...></tool_call>`) failed to extract beyond the first call.
 ## [0.1.4] - 2026-10-29
 
 ### Added
