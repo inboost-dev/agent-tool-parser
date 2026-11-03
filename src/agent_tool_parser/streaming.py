@@ -15,12 +15,12 @@ _ATTR_NAME_RE = re.compile(
 )
 
 _INVOKE_OPEN_RE = re.compile(
-    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>",
+    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*['\"]?(?P<colon_tool>[\w.:-]+)['\"]?)?\b(?P<attrs>[^>]*)>",
     re.IGNORECASE,
 )
 
 _TAG_CLOSE_RE = re.compile(
-    r"</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[\w-]+)?\s*>",
+    r"</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[\w.:-]+)?\s*>",
     re.IGNORECASE,
 )
 
@@ -198,6 +198,11 @@ class StreamingToolParser:
                         attr_m = _ATTR_NAME_RE.search(attrs)
                         if attr_m:
                             raw_name = attr_m.group(1).strip()
+                        elif m.group("tag").lower() in ("tool_call", "tool_calls"):
+                            after_tag = self.buffer[end:]
+                            json_m = _JSON_NAME_RE.search(after_tag[:300])
+                            if json_m:
+                                raw_name = json_m.group("name").strip()
 
                     if raw_name:
                         norm_name = self.parser.normalize_name(raw_name)
@@ -433,7 +438,10 @@ class StreamingToolParser:
                     call_str = self.buffer[:body_end]
                     name = self._current_name or "unknown"
                     if self._current_format == "xml_dsml":
-                        synthetic = f'<invoke name="{name}">{call_str}</invoke>'
+                        if call_str.strip().startswith("{"):
+                            synthetic = call_str.strip()
+                        else:
+                            synthetic = f'<invoke name="{name}">{call_str}</invoke>'
                     elif self._current_format == "native_token":
                         synthetic = f"<｜tool call begin｜>function={name}<｜tool sep｜>{call_str}<｜tool call end｜>"
                     elif self._current_format == "qwen":
@@ -495,7 +503,10 @@ class StreamingToolParser:
             if self.buffer:
                 name = self._current_name or "unknown"
                 if self._current_format == "xml_dsml":
-                    synthetic = f'<invoke name="{name}">{self.buffer}</invoke>'
+                    if self.buffer.strip().startswith("{"):
+                        synthetic = self.buffer.strip()
+                    else:
+                        synthetic = f'<invoke name="{name}">{self.buffer}</invoke>'
                 elif self._current_format == "native_token":
                     synthetic = f"<｜tool call begin｜>function={name}<｜tool sep｜>{self.buffer}<｜tool call end｜>"
                 elif self._current_format == "qwen":

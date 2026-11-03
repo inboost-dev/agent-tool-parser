@@ -11,7 +11,7 @@ include = ["LICENSE"]
 
 [project]
 name = "agent-tool-parser"
-version = "0.1.4"
+version = "0.1.5"
 description = "High-performance dual-engine (Rust + Python) tool call parser for DeepSeek R1/V3, Claude 3.7, Qwen 2.5, Llama 3, OpenAI & ReAct formats with auto-repair and zero dependencies."
 readme = "README.md"
 requires-python = ">=3.9"

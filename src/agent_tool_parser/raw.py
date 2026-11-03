@@ -20,8 +20,18 @@ _ATTR_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
+_CHILD_TOOL_NAME_RE = re.compile(
+    r"<(?:name|tool_name|function_name|tool|function)>\s*([\w-]+)(?:</(?:name|tool_name|function_name|tool|function)>|\s|$)",
+    re.IGNORECASE,
+)
+
+_CHILD_TOOL_FN_EQ_RE = re.compile(
+    r"""<[｜|]*(?:dsml[｜|]*)?(?:function|tool|invoke|action|func)\s*=\s*['"]?([\w.:-]+)""",
+    re.IGNORECASE,
+)
+
 _INVOKE_RE = re.compile(
-    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[\w-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>|$)",
+    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*['\"]?(?P<colon_tool>[\w.:-]+)['\"]?)?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[\w.:-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>|$)",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -43,12 +53,12 @@ _REACT_ACTION_RE = re.compile(
 _MISTRAL_RE = re.compile(r"\[TOOL_CALLS\]\s*(\[\s*\{.*?\}\s*\])", re.IGNORECASE | re.DOTALL)
 
 _PARAM_START_RE = re.compile(
-    r"<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b[^>]*?\bname\s*=\s*['\"]?(?P<pname>[\w-]+)['\"]?[^>]*>",
+    r"<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:=\s*['\"]?(?P<pname_eq>[\w.:-]+)['\"]?|\b[^>]*?\bname\s*=\s*['\"]?(?P<pname>[\w.:-]+)['\"]?)[^>]*>",
     re.IGNORECASE | re.DOTALL,
 )
 
 _PARAM_END_RE = re.compile(
-    r"</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\s*>",
+    r"</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:(?::|=)\s*[\w.:-]+)?\s*>",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -98,7 +108,9 @@ class RawToolCall:
                 start = m.start()
                 if any(cs <= start < ce for cs, ce in cdata_spans):
                     continue
-                pname = m.group("pname").strip().lower()
+                pname = (m.group("pname") or m.group("pname_eq") or "").strip().lower()
+                if not pname:
+                    continue
                 valid_starts.append((start, m.end(), pname))
 
             for i, (_, val_start, pname) in enumerate(valid_starts):
@@ -179,6 +191,14 @@ def extract_raw_tool_calls(text: str) -> list[RawToolCall]:
             attr_m = _ATTR_NAME_RE.search(attrs)
             if attr_m:
                 name = attr_m.group(1).strip()
+            else:
+                m_child = _CHILD_TOOL_NAME_RE.search(body)
+                if m_child:
+                    name = m_child.group(1).strip()
+                else:
+                    m_child_eq = _CHILD_TOOL_FN_EQ_RE.search(body)
+                    if m_child_eq:
+                        name = m_child_eq.group(1).strip()
 
         if name:
             results.append(RawToolCall(name=name, raw_args=body.strip(), raw_source=full))

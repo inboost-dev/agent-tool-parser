@@ -13,7 +13,7 @@ static ATTR_NAME_RE: Lazy<Regex> = Lazy::new(|| {
 });
 
 static TAG_CLOSE_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[\w-]+)?\s*>"#).unwrap()
+    Regex::new(r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[\w.:-]+)?\s*>"#).unwrap()
 });
 
 static NATIVE_TOKEN_START_RE: Lazy<Regex> = Lazy::new(|| {
@@ -146,7 +146,7 @@ impl StreamingToolParser {
 
                     // 2. Check for XML / DSML invoke tag
                     static INVOKE_OPEN_RE: Lazy<Regex> = Lazy::new(|| {
-                        Regex::new(r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>"#).unwrap()
+                        Regex::new(r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*['"]?(?P<colon_tool>[\w.:-]+)['"]?)?\b(?P<attrs>[^>]*)>"#).unwrap()
                     });
 
                     if let Some(caps) = INVOKE_OPEN_RE.captures(&self.buffer) {
@@ -166,11 +166,27 @@ impl StreamingToolParser {
                             None
                         };
 
-                        let name_opt = raw_name.or_else(|| {
-                            ATTR_NAME_RE
-                                .captures(attrs)
-                                .map(|c| c.get(1).unwrap().as_str().trim().to_string())
-                        });
+                        let name_opt = raw_name
+                            .or_else(|| {
+                                ATTR_NAME_RE
+                                    .captures(attrs)
+                                    .map(|c| c.get(1).unwrap().as_str().trim().to_string())
+                            })
+                            .or_else(|| {
+                                let tag_lower = caps
+                                    .name("tag")
+                                    .map(|t| t.as_str().to_lowercase())
+                                    .unwrap_or_default();
+                                if tag_lower == "tool_call" || tag_lower == "tool_calls" {
+                                    let after_tag = &self.buffer[end..];
+                                    let check_len = after_tag.len().min(300);
+                                    JSON_NAME_RE.captures(&after_tag[..check_len]).map(|c| {
+                                        c.name("name").unwrap().as_str().trim().to_string()
+                                    })
+                                } else {
+                                    None
+                                }
+                            });
 
                         if let Some(name) = name_opt {
                             let norm_name = self.parser.normalize_name(&name);
@@ -421,7 +437,12 @@ impl StreamingToolParser {
                         // Construct synthetic full string for parsing if needed
                         let synthetic = match format {
                             ToolStreamFormat::XmlDsml => {
-                                format!(r#"<invoke name="{}">{}</invoke>"#, name, call_str)
+                                let trimmed = call_str.trim();
+                                if trimmed.starts_with('{') {
+                                    trimmed.to_string()
+                                } else {
+                                    format!(r#"<invoke name="{}">{}</invoke>"#, name, call_str)
+                                }
                             }
                             ToolStreamFormat::NativeToken => {
                                 format!(
@@ -512,7 +533,12 @@ impl StreamingToolParser {
                 if !self.buffer.is_empty() {
                     let synthetic = match format {
                         ToolStreamFormat::XmlDsml => {
-                            format!(r#"<invoke name="{}">{}</invoke>"#, name, self.buffer)
+                            let trimmed = self.buffer.trim();
+                            if trimmed.starts_with('{') {
+                                trimmed.to_string()
+                            } else {
+                                format!(r#"<invoke name="{}">{}</invoke>"#, name, self.buffer)
+                            }
                         }
                         ToolStreamFormat::NativeToken => {
                             format!(
@@ -657,5 +683,29 @@ mod tests {
         });
         assert!(completed.is_some());
         assert_eq!(completed.unwrap().name, "search");
+    }
+
+    #[test]
+    fn test_streaming_qwen_xml() {
+        let mut parser = StreamingToolParser::new();
+        let chunk1 = "Let me check:\n<function=calculator>\n<parameter=expression>";
+        let events1 = parser.feed(chunk1);
+        assert!(events1.iter().any(
+            |e| matches!(e, StreamEvent::ToolCallStarted { name, .. } if name == "calculator")
+        ));
+
+        let chunk2 = "2 + 2</parameter>\n</function>\nResult ready.";
+        let events2 = parser.feed(chunk2);
+        let completed = events2.iter().find_map(|e| match e {
+            StreamEvent::ToolCallCompleted(tc) => Some(tc),
+            _ => None,
+        });
+        assert!(completed.is_some());
+        let tc = completed.unwrap();
+        assert_eq!(tc.name, "calculator");
+        assert_eq!(tc.args["expression"], "2 + 2");
+        assert!(events2
+            .iter()
+            .any(|e| matches!(e, StreamEvent::Text(t) if t.contains("Result ready"))));
     }
 }

@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.5] - 2026-11-03
+
+### Added
+- **Native Qwen & Open-Weights XML Function Calling Format**:
+  - Full support for Qwen / open-weights XML function calling conventions using `<function=TOOL_NAME>` and `<parameter=PARAM_NAME>PARAM_VALUE</parameter>`.
+  - Support for container wrappers such as `<tool_call><function=TOOL_NAME>...</function></tool_call>` and embedded JSON `<tool_call>{JSON}</tool_call>`.
+  - Automatic JSON deserialization for structured nested parameters within XML tags (e.g. nested objects, arrays, integers) while preserving code blocks and CDATA verbatim.
+  - Zero-copy structural scanner support in `RawToolCall` and `extract_raw_tool_calls` for Qwen XML invocations.
+  - Streaming support in `StreamingToolParser` for real-time `<function=NAME>` token consumption, start-event triggering, and truncated stream recovery.
+  - Strict dual-engine parity across Rust Core (`crates/agent-tool-parser-core`), PyO3 Native Extension (`crates/agent-tool-parser-py`), C ABI, WebAssembly, and pure-Python reference fallback.
 ## [0.1.4] - 2026-10-29
 
 ### Added

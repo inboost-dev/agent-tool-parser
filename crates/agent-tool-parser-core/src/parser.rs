@@ -15,26 +15,26 @@ static JSON_ARRAY_BLOCK_RE: Lazy<Regex> =
 
 pub(crate) static INVOKE_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[\w-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>|$)"#
+        r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*['"]?(?P<colon_tool>[\w.:-]+)['"]?)?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[\w.:-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>|$)"#
     ).unwrap()
 });
 
 static PARAM_START_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>"#
+        r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:=\s*['"]?(?P<pname_eq>[\w.:-]+)['"]?|\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w.:-]+)['"]?)[^>]*>"#
     ).unwrap()
 });
 
 static PARAM_END_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\s*>"#,
+        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:(?::|=)\s*[\w.:-]+)?\s*>"#,
     )
     .unwrap()
 });
 
 static INVOKE_END_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?::\s*[a-zA-Z0-9_-]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>"#
+        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[a-zA-Z0-9_.:-]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>"#
     ).unwrap()
 });
 
@@ -71,7 +71,16 @@ pub(crate) fn extract_xml_parameters(body: &str) -> Vec<(String, String)> {
             {
                 return None;
             }
-            let pname = caps.name("pname").unwrap().as_str().trim().to_lowercase();
+            let pname = if let Some(m) = caps.name("pname") {
+                m.as_str().trim().to_lowercase()
+            } else if let Some(m) = caps.name("pname_eq") {
+                m.as_str().trim().to_lowercase()
+            } else {
+                String::new()
+            };
+            if pname.is_empty() {
+                return None;
+            }
             Some((start, m.end(), pname))
         })
         .collect();
@@ -150,8 +159,16 @@ static ATTRS_NAME_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"(?i)\b(?:name|function|tool|action)\s*=\s*['"]?([\w-]+)['"]?"#).unwrap()
 });
 
-static CHILD_TAG_NAME_RE: Lazy<Regex> = Lazy::new(|| {
+pub(crate) static CHILD_TAG_NAME_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"(?i)<(?:name|tool_name|function_name|tool|function)>\s*([\w-]+)(?:</(?:name|tool_name|function_name|tool|function)>|\s|$)"#).unwrap()
+});
+
+pub(crate) static CHILD_TAG_FN_EQ_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?:function|tool|invoke|action|func)\s*=\s*['"]?(?P<name>[\w.:-]+)"#).unwrap()
+});
+
+pub(crate) static OUTER_TOOL_CALL_WRAPPER_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"(?is)<[｜|]*(?:dsml[｜|]*)?tool_call\b[^>]*>\s*(<[｜|]*(?:dsml[｜|]*)?(?:function|invoke|tool|action|call|tool_use|function_call)[=>\s].*?)\s*</[｜|]*(?:dsml[｜|]*)?tool_call\s*>"#).unwrap()
 });
 
 static ARGUMENTS_BLOCK_RE: Lazy<Regex> = Lazy::new(|| {
@@ -642,6 +659,14 @@ impl ToolParser {
             return Vec::new();
         }
 
+        let unwrapped;
+        let text = if let Some(caps) = OUTER_TOOL_CALL_WRAPPER_RE.captures(text) {
+            unwrapped = caps.get(1).unwrap().as_str();
+            unwrapped
+        } else {
+            text
+        };
+
         let mut calls = Vec::new();
 
         // 1. Direct tag format: <tool_name>search</tool_name><pattern>...</pattern>
@@ -690,15 +715,28 @@ impl ToolParser {
             if tool_name.is_none() {
                 if let Some(caps) = CHILD_TAG_NAME_RE.captures(body) {
                     tool_name = caps.get(1).map(|m| m.as_str().to_string());
+                } else if let Some(caps) = CHILD_TAG_FN_EQ_RE.captures(body) {
+                    tool_name = caps.name("name").map(|m| m.as_str().to_string());
                 }
             }
 
             let mut params = Map::new();
 
-            // Extract <parameter name="...">
+            // Extract <parameter name="..."> or <parameter=...>
             for (pname, pval) in extract_xml_parameters(body) {
                 let is_code = self.config.code_param_keys.contains(&pname);
-                params.insert(pname, Value::String(clean_param_val(&pval, is_code)));
+                let cleaned = clean_param_val(&pval, is_code);
+                let val_json = if !is_code && (cleaned.starts_with('{') || cleaned.starts_with('['))
+                {
+                    if let Some(j) = safe_json_loads(&cleaned) {
+                        j
+                    } else {
+                        Value::String(cleaned)
+                    }
+                } else {
+                    Value::String(cleaned)
+                };
+                params.insert(pname, val_json);
             }
 
             // Extract <arguments>...</arguments>

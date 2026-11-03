@@ -624,6 +624,46 @@ str_replace(
         engine = detect_vector_engine()
         self.assertIn(str(engine), ("avx2_256", "sse42_128", "neon_128", "scalar_fallback"))
 
+    def test_qwen_xml_function_parameter_format(self):
+        text = """<function=get_current_weather>
+<parameter=location>San Francisco, CA</parameter>
+<parameter=format>celsius</parameter>
+</function>"""
+        call = parse_tool_call(text)
+        self.assertEqual(call.name, "get_current_weather")
+        self.assertEqual(call.args["location"], "San Francisco, CA")
+        self.assertEqual(call.args["format"], "celsius")
+
+    def test_qwen_xml_wrapped_in_tool_call(self):
+        text = """<tool_call>
+<function=search>
+<parameter=pattern>regex_pattern</parameter>
+<parameter=path>src/</parameter>
+</function>
+</tool_call>"""
+        call = parse_tool_call(text)
+        self.assertEqual(call.name, "search")
+        self.assertEqual(call.args["pattern"], "regex_pattern")
+        self.assertEqual(call.args["path"], "src/")
+
+    def test_tool_call_with_raw_json(self):
+        text = """<tool_call>
+{"name": "fetch", "arguments": {"url": "https://api.inboost.pro"}}
+</tool_call>"""
+        call = parse_tool_call(text)
+        self.assertEqual(call.name, "fetch")
+        self.assertEqual(call.args["url"], "https://api.inboost.pro")
+
+    def test_qwen_xml_nested_json_parameters(self):
+        text = """<function=configure_server>
+<parameter=endpoint>api.inboost.pro</parameter>
+<parameter=options>{"timeout": 30, "retries": 3, "tls": true}</parameter>
+</function>"""
+        call = parse_tool_call(text)
+        self.assertEqual(call.name, "configure_server")
+        self.assertEqual(call.args["endpoint"], "api.inboost.pro")
+        self.assertEqual(call.args["options"], {"timeout": 30, "retries": 3, "tls": True})
+
 
 if __name__ == "__main__":
     unittest.main()

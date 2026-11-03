@@ -280,3 +280,36 @@ fn test_large_payload_stability_and_performance() {
         elapsed_ms
     );
 }
+
+#[test]
+fn test_qwen_xml_function_parameter_format() {
+    let text = "<function=get_current_weather>\n    <parameter=location>San Francisco, CA</parameter>\n    <parameter=format>celsius</parameter>\n    </function>";
+    let call = parse_tool_call(text).unwrap();
+    assert_eq!(call.name, "get_current_weather");
+    assert_eq!(call.args["location"], "San Francisco, CA");
+    assert_eq!(call.args["format"], "celsius");
+}
+
+#[test]
+fn test_qwen_xml_wrapped_in_tool_call() {
+    let text = r#"<tool_call>
+<function=get_current_weather>
+<parameter=location>Tokyo</parameter>
+<parameter=unit>celsius</parameter>
+</function>
+</tool_call>"#;
+    let call = parse_tool_call(text).unwrap();
+    assert_eq!(call.name, "get_current_weather");
+    assert_eq!(call.args["location"], "Tokyo");
+    assert_eq!(call.args["unit"], "celsius");
+}
+
+#[test]
+fn test_tool_call_with_raw_json() {
+    let text = r#"<tool_call>
+{"name": "fetch", "arguments": {"url": "https://api.inboost.pro"}}
+</tool_call>"#;
+    let call = parse_tool_call(text).unwrap();
+    assert_eq!(call.name, "fetch");
+    assert_eq!(call.args["url"], "https://api.inboost.pro");
+}

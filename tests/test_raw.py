@@ -96,6 +96,18 @@ class TestRawToolCall(unittest.TestCase):
         self.assertEqual(calls[0].name, "read_file")
         self.assertEqual(calls[1].name, "bash")
 
+    def test_extract_raw_qwen_xml(self):
+        text = """<function=calculate_route>
+<parameter=origin>Dubai</parameter>
+<parameter=destination>Abu Dhabi</parameter>
+</function>"""
+        raw_calls = extract_raw_tool_calls(text)
+        self.assertEqual(len(raw_calls), 1)
+        self.assertEqual(raw_calls[0].name, "calculate_route")
+        args = raw_calls[0].parse_args()
+        self.assertEqual(args["origin"], "Dubai")
+        self.assertEqual(args["destination"], "Abu Dhabi")
+
 
 if __name__ == "__main__":
     unittest.main()

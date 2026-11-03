@@ -55,43 +55,43 @@ _JSON_ARRAY_BLOCK_RE = re.compile(r"```(?:json)?\s*(\[.*?\])\s*```", re.DOTALL)
 
 _INVOKE_TAGS = (
     r"tool_invoke|invoke|tool_call|call|tool|invocation|"
-    r"function_call|function|action|tool_use|ant_tool_use|function_use|"
+    r"function_call|function|func|action|tool_use|ant_tool_use|function_use|"
     r"действие|вызов_функции|функция|инструмент"
 )
 
 _INVOKE_RE = re.compile(
     r"""<[｜|]*(?:dsml[｜|]*)?(?P<tag>""" + _INVOKE_TAGS + r""")"""
-    r"""(?::\s*(?P<colon_tool>[\w-]+))?\b(?P<attrs>[^>]*)>(?P<body>.*?)"""
-    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=tag)(?::\s*[\w-]+)?\s*>|"""
+    r"""(?:(?::|=)\s*['"]?(?P<colon_tool>[\w.:-]+)['"]?)?\b(?P<attrs>[^>]*)>(?P<body>.*?)"""
+    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=tag)(?:(?::|=)\s*[\w.:-]+)?\s*>|"""
     r"""(?=<[｜|]*(?:dsml[｜|]*)?(?:""" + _INVOKE_TAGS + r""")\b)|"""
-    r"""(?=</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>)|$)""",
+    r"""(?=</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>)|$)""",
     re.DOTALL | re.IGNORECASE,
 )
 
 _PARAM_RE = re.compile(
-    r"""<[｜|]*(?:dsml[｜|]*)?(?P<ptag>parameter|param|arg|argument|параметр|аргумент)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>(?P<pval>.*?)"""
-    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=ptag)\s*>|"""
+    r"""<[｜|]*(?:dsml[｜|]*)?(?P<ptag>parameter|param|arg|argument|параметр|аргумент)(?:=\s*['"]?(?P<pname_eq>[\w.:-]+)['"]?|\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w.:-]+)['"]?)[^>]*>(?P<pval>.*?)"""
+    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=ptag)(?:(?::|=)\s*[\w.:-]+)?\s*>|"""
     r"""(?=<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b)|"""
     r"""(?=</?[｜|]*(?:dsml[｜|]*)?(?:"""
     + _INVOKE_TAGS
-    + r"""|tool_calls|function_calls|calls|tools)\b)|$)""",
+    + r"""|tool_call|tool_calls|function_calls|calls|tools)\b)|$)""",
     re.DOTALL | re.IGNORECASE,
 )
 
 _PARAM_START_RE = re.compile(
-    r"""<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w-]+)['"]?[^>]*>""",
+    r"""<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:=\s*['"]?(?P<pname_eq>[\w.:-]+)['"]?|\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w.:-]+)['"]?)[^>]*>""",
     re.IGNORECASE,
 )
 
 _PARAM_END_RE = re.compile(
-    r"""</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\s*>""",
+    r"""</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:(?::|=)\s*[\w.:-]+)?\s*>""",
     re.IGNORECASE,
 )
 
 _INVOKE_END_RE = re.compile(
     r"""</[｜|]*(?:dsml[｜|]*)?(?:"""
     + _INVOKE_TAGS
-    + r""")(?:(?::\s*[\w-]+)?\s*>)|</[｜|]*(?:dsml[｜|]*)?(?:tool_calls|function_calls|calls|tools)\s*>""",
+    + r""")(?:(?::|=)\s*[\w.:-]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>""",
     re.IGNORECASE,
 )
 
@@ -132,7 +132,10 @@ def _extract_xml_parameters(body: str) -> list[tuple[str, str]]:
         s = m.start()
         if any(cs <= s < ce for cs, ce in cdata_spans):
             continue
-        starts.append((s, m.end(), m.group("pname").strip().lower()))
+        pname = (m.group("pname") or m.group("pname_eq") or "").strip().lower()
+        if not pname:
+            continue
+        starts.append((s, m.end(), pname))
 
     results: list[tuple[str, str]] = []
     for i in range(len(starts)):
@@ -201,6 +204,10 @@ _ATTR_TOOL_NAME_RE = re.compile(
 )
 _CHILD_TOOL_NAME_RE = re.compile(
     r"<(?:name|tool_name|function_name|tool|function)>\s*([\w-]+)(?:</(?:name|tool_name|function_name|tool|function)>|\s|$)",
+    re.IGNORECASE,
+)
+_CHILD_TOOL_FN_EQ_RE = re.compile(
+    r"""<[｜|]*(?:dsml[｜|]*)?(?:function|tool|invoke|action|func)\s*=\s*['"]?([\w.:-]+)""",
     re.IGNORECASE,
 )
 _ARGUMENTS_BLOCK_RE = re.compile(
@@ -584,18 +591,27 @@ class ToolParser:
                 if m_fn:
                     tool_name = m_fn.group(1)
 
-            # Check child tags for tool name (Anthropic format: <name>read_file</name>)
+            # Check child tags for tool name (Anthropic format: <name>read_file</name> or <function=search>)
             if not tool_name:
                 m_child = _CHILD_TOOL_NAME_RE.search(body)
                 if m_child:
                     tool_name = m_child.group(1)
+                else:
+                    m_child_eq = _CHILD_TOOL_FN_EQ_RE.search(body)
+                    if m_child_eq:
+                        tool_name = m_child_eq.group(1)
 
             params = {}
 
-            # Check DSML / standard parameter tags: <parameter name="...">
+            # Check DSML / standard parameter tags: <parameter name="..."> or <parameter=...>
             for pname, pval in _extract_xml_parameters(body):
                 is_code = pname in self.code_param_keys
-                params[pname] = clean_param_val(pval, is_code_param=is_code)
+                cleaned = clean_param_val(pval, is_code_param=is_code)
+                if not is_code and (cleaned.startswith("{") or cleaned.startswith("[")):
+                    parsed_val = safe_json_loads(cleaned, default=None)
+                    params[pname] = parsed_val if parsed_val is not None else cleaned
+                else:
+                    params[pname] = cleaned
 
             # Check for <arguments>...</arguments> or <parameters>...</parameters> block (Anthropic)
             m_wrap = _ARGUMENTS_BLOCK_RE.search(body)

@@ -132,10 +132,17 @@ impl RawToolCall {
 /// Extract raw tool calls from text without full JSON deserialization overhead.
 pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
     let clean = strip_thinking(text);
+    let unwrapped;
+    let clean = if let Some(caps) = crate::parser::OUTER_TOOL_CALL_WRAPPER_RE.captures(&clean) {
+        unwrapped = caps.get(1).unwrap().as_str();
+        unwrapped
+    } else {
+        &clean
+    };
     let mut results = Vec::new();
 
     // 1. DSML and XML invocation blocks
-    for caps in INVOKE_RE.captures_iter(&clean) {
+    for caps in INVOKE_RE.captures_iter(clean) {
         let full = caps.get(0).unwrap().as_str();
         let colon_tool = caps.name("colon_tool").map(|m| m.as_str().trim());
         let attrs = caps.name("attrs").map(|m| m.as_str()).unwrap_or("");
@@ -151,11 +158,22 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
             None
         };
 
-        let name = name_opt.or_else(|| {
-            ATTR_NAME_RE
-                .captures(attrs)
-                .map(|c| c.get(1).unwrap().as_str().trim().to_string())
-        });
+        let name = name_opt
+            .or_else(|| {
+                ATTR_NAME_RE
+                    .captures(attrs)
+                    .map(|c| c.get(1).unwrap().as_str().trim().to_string())
+            })
+            .or_else(|| {
+                crate::parser::CHILD_TAG_NAME_RE
+                    .captures(body)
+                    .map(|c| c.get(1).unwrap().as_str().trim().to_string())
+            })
+            .or_else(|| {
+                crate::parser::CHILD_TAG_FN_EQ_RE
+                    .captures(body)
+                    .map(|c| c.name("name").unwrap().as_str().trim().to_string())
+            });
 
         if let Some(tname) = name {
             if !tname.is_empty() {
@@ -169,7 +187,7 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
     }
 
     // 2. Native DeepSeek tokens
-    for caps in NATIVE_DEEPSEEK_RE.captures_iter(&clean) {
+    for caps in NATIVE_DEEPSEEK_RE.captures_iter(clean) {
         let full = caps.get(0).unwrap().as_str();
         let name = caps.name("name").unwrap().as_str().trim();
         let args = caps.name("args").unwrap().as_str().trim();
@@ -183,7 +201,7 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
     }
 
     // 3. Qwen action tokens
-    for caps in QWEN_ACTION_RE.captures_iter(&clean) {
+    for caps in QWEN_ACTION_RE.captures_iter(clean) {
         let full = caps.get(0).unwrap().as_str();
         let name = caps.name("name").unwrap().as_str().trim();
         let args = caps.name("args").unwrap().as_str().trim();
@@ -197,7 +215,7 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
     }
 
     // 4. Mistral [TOOL_CALLS]
-    if let Some(caps) = MISTRAL_RE.captures(&clean) {
+    if let Some(caps) = MISTRAL_RE.captures(clean) {
         let full = caps.get(0).unwrap().as_str();
         let arr_str = caps.get(1).unwrap().as_str();
         if let Some(Value::Array(items)) = safe_json_loads(arr_str) {
@@ -225,7 +243,7 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
     }
 
     // 5. ReAct pattern
-    if let Some(caps) = REACT_ACTION_RE.captures(&clean) {
+    if let Some(caps) = REACT_ACTION_RE.captures(clean) {
         let full = caps.get(0).unwrap().as_str();
         let name = caps.name("name").unwrap().as_str().trim();
         let args = caps.name("args").unwrap().as_str().trim();
@@ -239,7 +257,7 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
     }
 
     // 6. JSON objects in Markdown or raw text
-    let json_objs = extract_json_objects(&clean);
+    let json_objs = extract_json_objects(clean);
     for raw_json in json_objs {
         if let Some(Value::Object(map)) = safe_json_loads(&raw_json) {
             // Check standard OpenAI tool_calls structure
@@ -307,7 +325,7 @@ pub fn extract_raw_tool_calls(text: &str) -> Vec<RawToolCall> {
 
     // 7. Python function calls in Markdown or raw text
     let py_calls = crate::python_calls::extract_python_function_calls(
-        &clean,
+        clean,
         &crate::models::ToolParserConfig::default(),
     );
     for pc in py_calls {
