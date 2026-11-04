@@ -553,7 +553,7 @@ impl ToolParser {
         Err(ToolError::new(format!(
             "No valid tool call found in response: {:?}",
             if text.len() > 100 {
-                &text[..100]
+                &text[..text.floor_char_boundary(100)]
             } else {
                 &text
             }
