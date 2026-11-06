@@ -10,6 +10,7 @@ from agent_tool_parser import (
     ToolParser,
     parse_tool_call,
     parse_tool_calls,
+    try_parse_tool_call,
     try_parse_tool_calls,
 )
 
@@ -663,6 +664,17 @@ str_replace(
         self.assertEqual(call.name, "configure_server")
         self.assertEqual(call.args["endpoint"], "api.inboost.pro")
         self.assertEqual(call.args["options"], {"timeout": 30, "retries": 3, "tls": True})
+
+    def test_utf8_char_boundary_error_preview_no_panic(self):
+        # 98 ASCII bytes + 3-byte CJK character '钮' (occupies bytes 98..101).
+        # Truncating at byte index 100 without a boundary check previously caused a panic.
+        text = "a" * 98 + "钮"
+        self.assertEqual(try_parse_tool_calls(text), [])
+        self.assertIsNone(try_parse_tool_call(text))
+        with self.assertRaises(ToolError):
+            parse_tool_call(text)
+        with self.assertRaises(ToolError):
+            parse_tool_calls(text)
 
 
 if __name__ == "__main__":
