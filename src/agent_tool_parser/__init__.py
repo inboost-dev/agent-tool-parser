@@ -149,7 +149,7 @@ if not hasattr(ToolCall, "is_search"):
 if not hasattr(ToolCall, "is_submit"):
     ToolCall.is_submit = property(lambda self: is_submit_tool(self.name))
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 __all__ = [
     "ACCELERATED",
     "ARG_ALIASES",

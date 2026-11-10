@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-11-10
+
+### Fixed
+- **UTF-8 Char Boundary Slicing in Error Previews & Stream Buffers**:
+  - Resolved a critical Rust panic (`PanicException` in Python) triggered when unparseable model output contains multi-byte UTF-8 sequences (such as CJK characters, Cyrillic, or emojis) spanning byte index 100 during error-preview string construction ([#2](https://github.com/inboost-dev/agent-tool-parser/issues/2), [#3](https://github.com/inboost-dev/agent-tool-parser/pull/3)).
+  - Implemented safe backward-compatible `floor_char_boundary` helper adhering to MSRV 1.75+ using `is_char_boundary`.
+  - Hardened streaming buffer lookahead slicing points in `StreamingToolParser`.
+  - Added comprehensive regression tests across compiled Rust core (`test_degenerate_utf8_char_boundary_error_preview`) and Python (`test_utf8_char_boundary_error_preview_no_panic`) covering both accelerated PyO3 and pure-Python fallback.
+
 ## [0.1.5] - 2026-11-03
 
 ### Added
