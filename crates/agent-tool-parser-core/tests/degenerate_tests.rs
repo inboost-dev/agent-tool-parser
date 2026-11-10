@@ -442,3 +442,16 @@ fn test_degenerate_massive_string_without_catastrophic_backtracking() {
         elapsed
     );
 }
+
+#[test]
+fn test_degenerate_utf8_char_boundary_error_preview() {
+    // 98 ASCII bytes + 3-byte CJK character '钮' (bytes 98..101).
+    // Slicing at byte 100 without boundary check panics with non-char-boundary.
+    let input = format!("{}钮", "a".repeat(98));
+    let err = parse_tool_call(&input).unwrap_err();
+    assert!(err.to_string().contains("No valid tool call found"));
+
+    // Also verify non-raising try_parse variants return empty / None without panic
+    assert!(try_parse_tool_call(&input).is_none());
+    assert!(try_parse_tool_calls(&input).is_empty());
+}

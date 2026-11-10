@@ -179,7 +179,8 @@ impl StreamingToolParser {
                                     .unwrap_or_default();
                                 if tag_lower == "tool_call" || tag_lower == "tool_calls" {
                                     let after_tag = &self.buffer[end..];
-                                    let check_len = after_tag.len().min(300);
+                                    let check_len =
+                                        crate::parser::floor_char_boundary(after_tag, 300);
                                     JSON_NAME_RE.captures(&after_tag[..check_len]).map(|c| {
                                         c.name("name").unwrap().as_str().trim().to_string()
                                     })
@@ -343,8 +344,9 @@ impl StreamingToolParser {
                         }
 
                         if self.buffer.len() > 500 {
-                            if let Some(nl) = self.buffer[100..].find('\n') {
-                                let cut = 100 + nl + 1;
+                            let check_start = crate::parser::floor_char_boundary(&self.buffer, 100);
+                            if let Some(nl) = self.buffer[check_start..].find('\n') {
+                                let cut = check_start + nl + 1;
                                 events.push(StreamEvent::Text(self.buffer[..cut].to_string()));
                                 self.buffer = self.buffer[cut..].to_string();
                                 continue;

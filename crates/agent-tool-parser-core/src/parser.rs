@@ -13,6 +13,18 @@ static JSON_BLOCK_RE: Lazy<Regex> =
 static JSON_ARRAY_BLOCK_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?s)```(?:json)?\s*(\[.*?\])\s*```").unwrap());
 
+/// Safely find the closest char boundary at or below `index` (MSRV 1.75+ compatible).
+#[inline]
+pub(crate) fn floor_char_boundary(s: &str, mut index: usize) -> usize {
+    if index >= s.len() {
+        return s.len();
+    }
+    while !s.is_char_boundary(index) {
+        index -= 1;
+    }
+    index
+}
+
 pub(crate) static INVOKE_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
         r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*['"]?(?P<colon_tool>[\w.:-]+)['"]?)?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[\w.:-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>|$)"#
@@ -553,7 +565,8 @@ impl ToolParser {
         Err(ToolError::new(format!(
             "No valid tool call found in response: {:?}",
             if text.len() > 100 {
-                &text[..100]
+                let end = floor_char_boundary(&text, 100);
+                &text[..end]
             } else {
                 &text
             }
