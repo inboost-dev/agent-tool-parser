@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-11-16
+
+### Added
+- **Universal Protocol IR & Adapters**: Bidirectional translation between OpenAI, Anthropic, and Gemini wire protocols (`translate_request`, `translate_response`, `normalize_to_ir`).
+- **Real-Time Streaming Transformer**: SSE line-by-line streaming transformation (`StreamingProtocolTransformer`) with delta tool call reassembly.
+- **Model Context Protocol (MCP) Bridge**: Bidirectional conversion between raw tool calls, OpenAI format, and standard MCP JSON-RPC 2.0 (`to_mcp_tool_call`, `to_mcp_call_result`).
+- **Tool Schema Sanitizers**: `sanitize_tool_schema_for_gemini` (inlines `$defs`, flattens unions) and `sanitize_tool_schema_for_openai` (enforces strict schema compliance).
+- **Multilingual Parsing**: Full Unicode support for Japanese, Chinese, Korean, Indic scripts (Devanagari, Bengali, Tamil, Telugu), and Arabic RTL in tool tags, parameters, and payloads.
+- **Agent Governance & Metadata**: `ToolMetadata` with standard `x-a2a-*` header serialization for multi-agent audit trails and safety levels.
+- **Provider Registry**: `ProtocolRegistry` with built-in presets (`copilot`, `cursor`, `opencode`, `deepseek`, `mistral`, `vllm`, `ollama`) and custom alias registration.
+
 ## [0.1.6] - 2026-11-10
 
 ### Fixed
@@ -44,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Python-in-Markdown & Multilingual Action Call Extractor**:
   - Robust parser for multiline Python function call syntax within markdown code blocks (```` ```python ... ``` ````) and conversational text.
   - Full support for triple-quoted multiline string literals (`"""..."""` and `'''...'''`), preserving embedded raw newlines, quotes, and whitespace formatting (e.g. for `str_replace` / `edit_file` diff editing).
-  - Native support for localized LLM invocation prefixes (`Вызов функции: ...`, `Действие: ...`) and multilingual XML/DSML tags (`<действие: ...>`, `<вызов_функции>`, `<функция>`, `<инструмент>`, `<параметр>`).
+  - Native support for diverse LLM invocation prefixes (`action: ...`, `call: ...`, `tool: ...`, `function: ...`) and extensible XML/DSML tags (`<action: ...>`, `<invoke>`, `<function>`, `<parameter>`).
   - Dual-engine parity verified across Rust Core and pure-Python fallback.
 - **Unescaped Quote Guard (`repair_unescaped_quotes`)**:
   - Resilient heuristic repair for LLMs omitting escape slashes on inner double quotes within JSON string values (e.g. `{"arguments": {"new_str": "print("Hello world")"}}` or `{"command": "echo "hello" >> log.txt"}`).

@@ -46,7 +46,7 @@ static PARAM_END_RE: Lazy<Regex> = Lazy::new(|| {
 
 static INVOKE_END_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[a-zA-Z0-9_.:-]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>"#
+        r#"(?is)</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[\w.:-]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>"#
     ).unwrap()
 });
 
@@ -187,8 +187,10 @@ static ARGUMENTS_BLOCK_RE: Lazy<Regex> = Lazy::new(|| {
 });
 
 static DIRECT_TAG_TNAME_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)<(?:tool_name|function_name|tool)>([\w-]+)</(?:tool_name|function_name|tool)>")
-        .unwrap()
+    Regex::new(
+        r"(?i)<(?:tool_name|function_name|tool)>([^<>\s]+)</(?:tool_name|function_name|tool)>",
+    )
+    .unwrap()
 });
 
 static FENCE_CODEBLOCK_RE: Lazy<Regex> =
@@ -206,7 +208,7 @@ static HEADLESS_KEY_RE: Lazy<Regex> = Lazy::new(|| {
 });
 
 fn extract_direct_tags(text: &str, require_closing: bool) -> Vec<(String, String)> {
-    static TAG_START_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"<([a-zA-Z0-9_-]+)>"#).unwrap());
+    static TAG_START_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"<([^<>\s/]+)>"#).unwrap());
 
     let mut results = Vec::new();
     let matches: Vec<(usize, usize, String)> = TAG_START_RE

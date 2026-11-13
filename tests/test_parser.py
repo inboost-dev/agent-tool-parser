@@ -563,31 +563,31 @@ str_replace(
         self.assertEqual(call.args["old_str"], "def date2num(d):\n    return d")
         self.assertEqual(call.args["new_str"], "def date2num(d):\n    return _date2num(d)")
 
-    def test_russian_action_prefix_and_function_call(self):
-        text = 'Вызов функции: edit_file(path="src/models.py", command="replace")'
+    def test_action_prefix_and_function_call(self):
+        text = 'Action: edit_file(path="src/models.py", command="replace")'
         call = parse_tool_call(text)
         self.assertEqual(call.name, "str_replace")  # aliased by default
         self.assertEqual(call.args["path"], "src/models.py")
         self.assertEqual(call.args["command"], "replace")
 
-        text2 = 'Действие: read_file(path="README.md")'
+        text2 = 'call: read_file(path="README.md")'
         call2 = parse_tool_call(text2)
         self.assertEqual(call2.name, "read_file")
         self.assertEqual(call2.args["path"], "README.md")
 
-    def test_russian_action_xml_tags(self):
-        text = """<действие: str_replace>
+    def test_action_xml_tags(self):
+        text = """<action: str_replace>
 {"path": "lib/dates.py", "old_str": "foo", "new_str": "bar"}
-</действие>"""
+</action>"""
         call = parse_tool_call(text)
         self.assertEqual(call.name, "str_replace")
         self.assertEqual(call.args["path"], "lib/dates.py")
         self.assertEqual(call.args["old_str"], "foo")
         self.assertEqual(call.args["new_str"], "bar")
 
-        text2 = """<действие name="read_file">
-<параметр name="path">src/main.rs</параметр>
-</действие>"""
+        text2 = """<action name="read_file">
+<parameter name="path">src/main.rs</parameter>
+</action>"""
         call2 = parse_tool_call(text2)
         self.assertEqual(call2.name, "read_file")
         self.assertEqual(call2.args["path"], "src/main.rs")
