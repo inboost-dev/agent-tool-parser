@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-11-13
+
+### Added
+- **Universal Protocol Intermediate Representation (IR) & Multi-Provider Adapters**:
+  - $O(N)$ canonical translation between OpenAI Chat Completions (`/v1/chat/completions`), Anthropic Messages (`/v1/messages`), and Google Gemini (`generateContent` / `streamGenerateContent`).
+  - Bidirectional request (`translate_request`) and response (`translate_response`) translation preserving tool definitions, multi-turn tool call IDs, usage metrics, reasoning/thinking blocks, and error payloads.
+  - Multi-turn conversation history translation preserving tool call IDs, tool arguments, and execution outcomes across all supported providers.
+- **Real-Time Streaming Protocol Transformer (`StreamingProtocolTransformer`)**:
+  - High-performance Server-Sent Events (SSE) line-by-line streaming transformation (`transform_sse_line`) with sub-0.005 ms per-chunk latency (~300,000 chunks/sec).
+  - Robust handling of keepalive pings (`: ping`), multi-line SSE frames, delta tool calls, thinking chunks, and stream termination signals.
+- **Provider Alias Registry (`ProtocolRegistry`)**:
+  - Built-in presets for popular provider environments (`copilot`, `cursor`, `opencode`, `deepseek`, `mistral`, `azure`, `groq`, `ollama`, `vllm`, `sglang`).
+  - Dynamic runtime alias registration (`ProtocolRegistry.register_alias`) with actionable error messages for unrecognized endpoints.
+- **Tool Schema Sanitizer for Google Gemini & OpenAI Strict**:
+  - `sanitize_tool_schema_for_gemini`: Inlines `$defs` and `$ref`, flattens `anyOf`/`oneOf`, and strips unsupported keys (`$schema`, `default`, `examples`, `additionalProperties`) preventing Google Gemini `HTTP 400 Bad Request`.
+  - `sanitize_tool_schema_for_openai`: Enforces `additionalProperties: False` and adds all properties to `required` for OpenAI Structured Outputs.
+- **Model Context Protocol (MCP) Bridge**:
+  - `to_mcp_tool_call`: Extracts tool calls from raw model text or OpenAI dicts and converts directly to standard MCP JSON-RPC 2.0 `tools/call`.
+  - `to_mcp_call_result`: Serializes arbitrary execution outputs into standard MCP `CallToolResult` content blocks.
+  - Ecosystem schema and result converters: `convert_tool_definitions`, `convert_tool_calls`, `convert_tool_results`.
+- **Agent-to-Agent (A2A) Governance & Metadata Headers**:
+  - `ToolMetadata`: Tracks agent provenance (`caller_agent`, `target_agent`), task IDs, mutation/verification flags, idempotency, and security levels.
+  - Header serialization (`.to_headers()`) and parsing (`.from_headers()`) supporting standard `x-a2a-*` audit metadata.
+- **NI/AI Documentation & Cheatsheet**:
+  - Refactored `README.md` with immediate 30-second Quickstart and structured NI/AI cheatsheet matrix.
+  - End-to-end QA integration test suite (`tests/test_functional_e2e.py`).
+- **Multilingual Support**:
+  - Expanded Unicode tag, parameter, and tool name parsing across Rust core and pure-Python fallback to support Indic scripts (Devanagari, Bengali, Tamil, Telugu), Arabic (RTL), Japanese (Kanji, Hiragana, Katakana), Korean (Hangul), and Chinese (Simplified & Traditional).
+  - Added test suites verifying Unicode character boundary stability and multi-byte script parsing.
+- **Universal IR Normalization (`normalize_to_ir`) & Protocol Auto-Detection**:
+  - `normalize_to_ir`: Ingests arbitrary tool calls (raw LLM text, provider dicts, native `ToolCall` instances) and normalizes into `CanonicalToolCall` IR.
+  - Automatic wire protocol detection across `convert_tool_definitions`, `convert_tool_calls`, and `convert_tool_results`.
+
 ## [0.1.6] - 2026-11-10
 
 ### Fixed
@@ -44,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Python-in-Markdown & Multilingual Action Call Extractor**:
   - Robust parser for multiline Python function call syntax within markdown code blocks (```` ```python ... ``` ````) and conversational text.
   - Full support for triple-quoted multiline string literals (`"""..."""` and `'''...'''`), preserving embedded raw newlines, quotes, and whitespace formatting (e.g. for `str_replace` / `edit_file` diff editing).
-  - Native support for localized LLM invocation prefixes (`Вызов функции: ...`, `Действие: ...`) and multilingual XML/DSML tags (`<действие: ...>`, `<вызов_функции>`, `<функция>`, `<инструмент>`, `<параметр>`).
+  - Native support for diverse LLM invocation prefixes (`action: ...`, `call: ...`, `tool: ...`, `function: ...`) and extensible XML/DSML tags (`<action: ...>`, `<invoke>`, `<function>`, `<parameter>`).
   - Dual-engine parity verified across Rust Core and pure-Python fallback.
 - **Unescaped Quote Guard (`repair_unescaped_quotes`)**:
   - Resilient heuristic repair for LLMs omitting escape slashes on inner double quotes within JSON string values (e.g. `{"arguments": {"new_str": "print("Hello world")"}}` or `{"command": "echo "hello" >> log.txt"}`).

@@ -8,8 +8,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 static ATTR_NAME_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?i)\b(?:name|tool|tool_name|function)\s*=\s*['"]?([a-zA-Z0-9_.:-]+)['"]?"#)
-        .unwrap()
+    Regex::new(r#"(?i)\b(?:name|tool|tool_name|function)\s*=\s*['"]?([^<>\s'"]+)['"]?"#).unwrap()
 });
 
 static TAG_CLOSE_RE: Lazy<Regex> = Lazy::new(|| {
@@ -146,7 +145,7 @@ impl StreamingToolParser {
 
                     // 2. Check for XML / DSML invoke tag
                     static INVOKE_OPEN_RE: Lazy<Regex> = Lazy::new(|| {
-                        Regex::new(r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*['"]?(?P<colon_tool>[\w.:-]+)['"]?)?\b(?P<attrs>[^>]*)>"#).unwrap()
+                        Regex::new(r#"(?is)<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use)(?:(?::|=)\s*['"]?(?P<colon_tool>[\w.:-]+)['"]?)?\b(?P<attrs>[^>]*)>"#).unwrap()
                     });
 
                     if let Some(caps) = INVOKE_OPEN_RE.captures(&self.buffer) {

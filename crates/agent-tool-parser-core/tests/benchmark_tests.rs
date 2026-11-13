@@ -117,19 +117,248 @@ fn test_bfcl_conversational_rejection() {
 }
 
 #[test]
-fn test_unicode_cyrillic_parameters() {
+fn test_unicode_multilingual_parameters() {
     let text = r#"<｜DSML｜tool_calls>
+<｜DSML｜invoke name="recherche_documents">
+<｜DSML｜parameter name="requête">rapport financier 2026</｜DSML｜parameter>
+<｜DSML｜parameter name="dossier">documents/comptabilité</｜DSML｜parameter>
+<｜DSML｜parameter name="mode_strict">true</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>"#;
+    let call = parse_tool_call(text).unwrap();
+    assert_eq!(call.name, "recherche_documents");
+    assert_eq!(call.args["requête"], "rapport financier 2026");
+    assert_eq!(call.args["dossier"], "documents/comptabilité");
+    assert_eq!(call.args["mode_strict"], "true");
+}
+
+#[test]
+fn test_unicode_korean_hangul_parameters() {
+    // 1. Korean JSON format
+    let text_json = r#"{
+        "tool": "파일_검색",
+        "경로": "문서/보고서_2026.pdf",
+        "옵션": {"정밀검색": true, "최대결과": 10}
+    }"#;
+    let call1 = parse_tool_call(text_json).unwrap();
+    assert_eq!(call1.name, "파일_검색");
+    assert_eq!(call1.args["경로"], "문서/보고서_2026.pdf");
+    assert_eq!(call1.args["옵션"]["정밀검색"], true);
+    assert_eq!(call1.args["옵션"]["최대결과"], 10);
+
+    // 2. Korean XML format
+    let text_xml = r#"<tool_use>
+<name>코드_분석</name>
+<arguments>
+<프로젝트>인공지능_엔진</프로젝트>
+<대상_파일>src/main.rs</대상_파일>
+</arguments>
+</tool_use>"#;
+    let call2 = parse_tool_call(text_xml).unwrap();
+    assert_eq!(call2.name, "코드_분석");
+    assert_eq!(call2.args["프로젝트"], "인공지능_엔진");
+    assert_eq!(call2.args["대상_파일"], "src/main.rs");
+
+    // 3. Korean action prefix call
+    let text_call =
+        r#"호출: 데이터베이스_조회(테이블="사용자", 조건="활성_상태 == True", 제한=50)"#;
+    let call3 = parse_tool_call(text_call).unwrap();
+    assert_eq!(call3.name, "데이터베이스_조회");
+    assert_eq!(call3.args["테이블"], "사용자");
+    assert_eq!(call3.args["조건"], "활성_상태 == True");
+    assert_eq!(call3.args["제한"], 50);
+}
+
+#[test]
+fn test_unicode_indic_scripts_and_arabic() {
+    // 1. Hindi (Devanagari) JSON
+    let text_hindi_json = r#"{
+        "tool": "फ़ाइल_खोज",
+        "निर्देशिका": "दस्तावेज़/वित्तीय_रिपोर्ट",
+        "सख्त_मोड": true
+    }"#;
+    let c1 = parse_tool_call(text_hindi_json).unwrap();
+    assert_eq!(c1.name, "फ़ाइल_खोज");
+    assert_eq!(c1.args["निर्देशिका"], "दस्तावेज़/वित्तीय_रिपोर्ट");
+    assert_eq!(c1.args["सख्त_मोड"], true);
+
+    // 2. Hindi (Devanagari) XML
+    let text_hindi_xml = r#"<tool_use>
+<name>डेटाबेस_क्वेरी</name>
+<arguments>
+<तालिका>उपयोगकर्ता</तालिका>
+<सीमा>100</सीमा>
+</arguments>
+</tool_use>"#;
+    let c2 = parse_tool_call(text_hindi_xml).unwrap();
+    assert_eq!(c2.name, "डेटाबेस_क्वेरी");
+    assert_eq!(c2.args["तालिका"], "उपयोगकर्ता");
+    assert_eq!(c2.args["सीमा"], "100");
+
+    // 3. Bengali (বাংলা) JSON
+    let text_bengali = r#"{
+        "tool": "নথি_অনুসন্ধান",
+        "পথ": "প্রকল্প/উপাত্ত.csv",
+        "অনুরোধ": "গ্রাহক_তালিকা"
+    }"#;
+    let c3 = parse_tool_call(text_bengali).unwrap();
+    assert_eq!(c3.name, "নথি_অনুসন্ধান");
+    assert_eq!(c3.args["পথ"], "প্রকল্প/উপাত্ত.csv");
+    assert_eq!(c3.args["অনুরোধ"], "গ্রাহক_তালিকা");
+
+    // 4. Tamil (தமிழ்) JSON
+    let text_tamil = r#"{
+        "tool": "தரவு_தேடல்",
+        "கோப்பு": "அறிக்கை/2026.pdf",
+        "வடிகட்டி": "முக்கியமானது"
+    }"#;
+    let c4 = parse_tool_call(text_tamil).unwrap();
+    assert_eq!(c4.name, "தரவு_தேடல்");
+    assert_eq!(c4.args["கோப்பு"], "அறிக்கை/2026.pdf");
+    assert_eq!(c4.args["வடிகட்டி"], "முக்கியமானது");
+
+    // 5. Telugu (తెలుగు) JSON
+    let text_telugu = r#"{
+        "tool": "ఫైల్_శోధన",
+        "మార్గం": "నివేదిక/డేటా.csv",
+        "పరిమితి": 50
+    }"#;
+    let c5 = parse_tool_call(text_telugu).unwrap();
+    assert_eq!(c5.name, "ఫైల్_శోధన");
+    assert_eq!(c5.args["మార్గం"], "నివేదిక/డేటా.csv");
+    assert_eq!(c5.args["పరిమితి"], 50);
+
+    // 6. Arabic (العربية - RTL script)
+    let text_arabic = r#"{
+        "tool": "بحث_الملفات",
+        "مسار": "مستندات/تقرير_مالي.pdf",
+        "خيارات": {"تطابق_تام": true}
+    }"#;
+    let c6 = parse_tool_call(text_arabic).unwrap();
+    assert_eq!(c6.name, "بحث_الملفات");
+    assert_eq!(c6.args["مسار"], "مستندات/تقرير_مالي.pdf");
+    assert_eq!(c6.args["خيارات"]["تطابق_تام"], true);
+}
+
+#[test]
+fn test_unicode_chinese_simplified_and_traditional() {
+    // 1. Simplified Chinese in Qwen XML format
+    let text_qwen = r#"<function=代码重构>
+<parameter=目标文件>src/pipeline.py</parameter>
+<parameter=重构策略>函数提取</parameter>
+</function>"#;
+    let call1 = parse_tool_call(text_qwen).unwrap();
+    assert_eq!(call1.name, "代码重构");
+    assert_eq!(call1.args["目标文件"], "src/pipeline.py");
+    assert_eq!(call1.args["重构策略"], "函数提取");
+
+    // 2. Traditional Chinese in JSON format
+    let text_trad = r#"{
+        "tool": "檔案檢索",
+        "路徑": "系統設定/核心模組.json",
+        "選項": {"除錯模式": true, "逾時秒數": 30}
+    }"#;
+    let call2 = parse_tool_call(text_trad).unwrap();
+    assert_eq!(call2.name, "檔案檢索");
+    assert_eq!(call2.args["路徑"], "系統設定/核心模組.json");
+    assert_eq!(call2.args["選項"]["除錯模式"], true);
+    assert_eq!(call2.args["選項"]["逾時秒數"], 30);
+
+    // 3. Chinese prefix call
+    let text_call = r#"调用: 数据分析(数据源="用户数据.csv", 输出格式="表格")"#;
+    let call3 = parse_tool_call(text_call).unwrap();
+    assert_eq!(call3.name, "数据分析");
+    assert_eq!(call3.args["数据源"], "用户数据.csv");
+    assert_eq!(call3.args["输出格式"], "表格");
+}
+
+#[test]
+fn test_unicode_japanese_parameters() {
+    // 1. Japanese JSON with Kanji, Katakana, and Hiragana
+    let text_json = r#"{
+        "tool": "ファイル検索",
+        "ディレクトリ": "ドキュメント/設定ファイル",
+        "キーワード": "データベース接続文字列",
+        "再帰的検索": true
+    }"#;
+    let c1 = parse_tool_call(text_json).unwrap();
+    assert_eq!(c1.name, "ファイル検索");
+    assert_eq!(c1.args["ディレクトリ"], "ドキュメント/設定ファイル");
+    assert_eq!(c1.args["キーワード"], "データベース接続文字列");
+    assert_eq!(c1.args["再帰的検索"], true);
+
+    // 2. Japanese in Qwen XML format
+    let text_qwen = r#"<function=データベース_クエリ>
+<parameter=テーブル名>ユーザー情報</parameter>
+<parameter=抽出条件>有効ステータス</parameter>
+</function>"#;
+    let c2 = parse_tool_call(text_qwen).unwrap();
+    assert_eq!(c2.name, "データベース_クエリ");
+    assert_eq!(c2.args["テーブル名"], "ユーザー情報");
+    assert_eq!(c2.args["抽出条件"], "有効ステータス");
+
+    // 3. Japanese in Claude XML tag format
+    let text_xml = r#"<tool_use>
+<name>ファイルを読み込む</name>
+<arguments>
+<ファイルパス>設定/config.yaml</ファイルパス>
+<エンコーディング>utf-8</エンコーディング>
+</arguments>
+</tool_use>"#;
+    let c3 = parse_tool_call(text_xml).unwrap();
+    assert_eq!(c3.name, "ファイルを読み込む");
+    assert_eq!(c3.args["ファイルパス"], "設定/config.yaml");
+    assert_eq!(c3.args["エンコーディング"], "utf-8");
+
+    // 4. Japanese function call syntax
+    let text_call =
+        r#"テキスト解析(ソース="日本語の形態素解析テスト", モデル="gpt-4o", 詳細出力=True)"#;
+    let c4 = parse_tool_call(text_call).unwrap();
+    assert_eq!(c4.name, "テキスト解析");
+    assert_eq!(c4.args["ソース"], "日本語の形態素解析テスト");
+    assert_eq!(c4.args["モデル"], "gpt-4o");
+    assert_eq!(c4.args["詳細出力"], true);
+}
+
+#[test]
+fn test_unicode_cyrillic_parameters() {
+    // 1. Cyrillic in DSML format
+    let text_dsml = r#"<｜DSML｜tool_calls>
 <｜DSML｜invoke name="поиск_документов">
 <｜DSML｜parameter name="запрос">финансовый отчет 2026</｜DSML｜parameter>
 <｜DSML｜parameter name="папка">документы/бухгалтерия</｜DSML｜parameter>
 <｜DSML｜parameter name="строгий_режим">true</｜DSML｜parameter>
 </｜DSML｜invoke>
 </｜DSML｜tool_calls>"#;
-    let call = parse_tool_call(text).unwrap();
-    assert_eq!(call.name, "поиск_документов");
-    assert_eq!(call.args["запрос"], "финансовый отчет 2026");
-    assert_eq!(call.args["папка"], "документы/бухгалтерия");
-    assert_eq!(call.args["строгий_режим"], "true");
+    let call1 = parse_tool_call(text_dsml).unwrap();
+    assert_eq!(call1.name, "поиск_документов");
+    assert_eq!(call1.args["запрос"], "финансовый отчет 2026");
+    assert_eq!(call1.args["папка"], "документы/бухгалтерия");
+    assert_eq!(call1.args["строгий_режим"], "true");
+
+    // 2. Cyrillic in XML format with CDATA
+    let text_xml = r#"<tool_use>
+<name>запись_файла</name>
+<arguments>
+<путь>src/модели.py</путь>
+<содержимое><![CDATA[def получить_пользователя(): return "Иван"]]></содержимое>
+</arguments>
+</tool_use>"#;
+    let call2 = parse_tool_call(text_xml).unwrap();
+    assert_eq!(call2.name, "запись_файла");
+    assert_eq!(call2.args["путь"], "src/модели.py");
+    assert_eq!(
+        call2.args["содержимое"],
+        "def получить_пользователя(): return \"Иван\""
+    );
+
+    // 3. Russian action prefix call
+    let text_call =
+        r#"Вызов функции: поиск_информации(запрос="архитектура микросервисов", лимит=10)"#;
+    let call3 = parse_tool_call(text_call).unwrap();
+    assert_eq!(call3.name, "поиск_информации");
+    assert_eq!(call3.args["запрос"], "архитектура микросервисов");
+    assert_eq!(call3.args["лимит"], 10);
 }
 
 #[test]
@@ -161,11 +390,10 @@ fn test_unicode_emoji_and_special_symbols() {
 
 #[test]
 fn test_unicode_escaped_sequences() {
-    let text =
-        r#"{"tool": "logger", "text": "\u041f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440"}"#;
+    let text = r#"{"tool": "logger", "text": "\u3053\u3093\u306b\u3061\u306f \u4e16\u754c"}"#;
     let call = parse_tool_call(text).unwrap();
     assert_eq!(call.name, "logger");
-    assert_eq!(call.args["text"], "Привет мир");
+    assert_eq!(call.args["text"], "こんにちは 世界");
 }
 
 #[test]

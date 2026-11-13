@@ -449,14 +449,14 @@ str_replace(
     return _date2num(d)"""
 )
 ```''',
-            'Вызов функции: edit_file(path="src/models.py", command="replace")',
-            'Действие: read_file(path="README.md")',
-            """<действие: str_replace>
+            'Action: edit_file(path="src/models.py", command="replace")',
+            'call: read_file(path="README.md")',
+            """<action: str_replace>
 {"path": "lib/dates.py", "old_str": "foo", "new_str": "bar"}
-</действие>""",
-            """<действие name="read_file">
-<параметр name="path">src/main.rs</параметр>
-</действие>""",
+</action>""",
+            """<action name="read_file">
+<parameter name="path">src/main.rs</parameter>
+</action>""",
         ]
         for s in samples:
             acc_call = acc.parse_tool_call(s)

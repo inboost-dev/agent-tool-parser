@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 static ATTR_NAME_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?i)\b(?:name|tool|tool_name|function)\s*=\s*['"]?([a-zA-Z0-9_.:-]+)['"]?"#)
-        .unwrap()
+    Regex::new(r#"(?i)\b(?:name|tool|tool_name|function)\s*=\s*['"]?([^<>\s'"]+)['"]?"#).unwrap()
 });
 
 static NATIVE_DEEPSEEK_RE: Lazy<Regex> = Lazy::new(|| {

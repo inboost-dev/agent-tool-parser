@@ -48,12 +48,20 @@ static PYTHON_KEYWORDS: &[&str] = &[
 ];
 
 static PREFIXES: &[&str] = &[
+    "действие:",
     "вызов функции:",
     "вызов инструмента:",
-    "действие:",
     "вызов:",
     "инструмент:",
     "функция:",
+    "动作:",
+    "调用:",
+    "工具:",
+    "函数:",
+    "동작:",
+    "호출:",
+    "도구:",
+    "함수:",
     "action:",
     "call:",
     "tool:",
@@ -597,8 +605,8 @@ str_replace(
     }
 
     #[test]
-    fn test_russian_action_prefix() {
-        let text = "Вызов функции: edit_file(path=\"src/models.py\", command=\"replace\")";
+    fn test_action_prefix() {
+        let text = "Action: edit_file(path=\"src/models.py\", command=\"replace\")";
         let config = ToolParserConfig::default();
         let calls = extract_python_function_calls(text, &config);
         assert_eq!(calls.len(), 1);

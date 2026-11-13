@@ -16,22 +16,22 @@ from agent_tool_parser.cleaners import (
 from agent_tool_parser.models import ToolCall
 
 _ATTR_NAME_RE = re.compile(
-    r"\b(?:name|tool|tool_name|function)\s*=\s*['\"]?([a-zA-Z0-9_.:-]+)['\"]?",
+    r"\b(?:name|tool|tool_name|function)\s*=\s*['\"]?([^<>\s'\"]+)['\"]?",
     re.IGNORECASE,
 )
 
 _CHILD_TOOL_NAME_RE = re.compile(
-    r"<(?:name|tool_name|function_name|tool|function)>\s*([\w-]+)(?:</(?:name|tool_name|function_name|tool|function)>|\s|$)",
+    r"<(?:name|tool_name|function_name|tool|function)>\s*([^<>\s]+)(?:</(?:name|tool_name|function_name|tool|function)>|\s|$)",
     re.IGNORECASE,
 )
 
 _CHILD_TOOL_FN_EQ_RE = re.compile(
-    r"""<[｜|]*(?:dsml[｜|]*)?(?:function|tool|invoke|action|func)\s*=\s*['"]?([\w.:-]+)""",
+    r"""<[｜|]*(?:dsml[｜|]*)?(?:function|tool|invoke|action|func)\s*=\s*['"]?([^<>\s'"]+)""",
     re.IGNORECASE,
 )
 
 _INVOKE_RE = re.compile(
-    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*['\"]?(?P<colon_tool>[\w.:-]+)['\"]?)?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[\w.:-]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>|$)",
+    r"<[｜|]*(?:dsml[｜|]*)?(?P<tag>tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*['\"]?(?P<colon_tool>[^<>\s'\"]+)['\"]?)?\b(?P<attrs>[^>]*)>(?P<body>.*?)(?:</[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)(?:(?::|=)\s*[^<>\s'\"]+)?\s*>|<[｜|]*(?:dsml[｜|]*)?(?:tool_invoke|invoke|tool_call|call|tool|invocation|function_call|function|func|action|tool_use|ant_tool_use|function_use|действие|вызов_функции|функция|инструмент)\b|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>|$)",
     re.IGNORECASE | re.DOTALL,
 )
 
