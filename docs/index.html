@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>agent-tool-parser — Deterministic LLM Tool Call Parser</title>
-  <meta name="description" content="Deterministic, zero-dependency parser for heterogeneous LLM tool calls and structured outputs. Designed for agent runtimes and inference pipelines.">
+  <title>agent-tool-parser — Deterministic LLM Tool Call Parser &amp; Universal Protocol IR</title>
+  <meta name="description" content="Deterministic, zero-dependency parser for heterogeneous LLM tool calls, structured outputs, and universal protocol translation across OpenAI, Anthropic, Gemini, MCP, and A2A.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -82,14 +82,14 @@
           ⚡
         </div>
         <span class="font-bold text-lg tracking-tight text-white font-mono">agent-tool-parser</span>
-        <span class="hidden sm:inline-block px-2 py-0.5 text-xs font-semibold rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">v0.1.6</span>
+        <span class="hidden sm:inline-block px-2 py-0.5 text-xs font-semibold rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">v0.2.0</span>
       </div>
 
       <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-300">
-        <a href="#playground" class="hover:text-sky-400 transition-colors">Evaluation Playground</a>
-        <a href="#why" class="hover:text-sky-400 transition-colors">Architectural Context</a>
+        <a href="#playground" class="hover:text-sky-400 transition-colors">Playground</a>
+        <a href="#cheatsheet" class="hover:text-sky-400 transition-colors">Cheatsheet</a>
+        <a href="#recipes" class="hover:text-sky-400 transition-colors">Recipes</a>
         <a href="#ecosystem" class="hover:text-sky-400 transition-colors">Ecosystem</a>
-        <a href="#recipes" class="hover:text-sky-400 transition-colors">Integration Patterns</a>
         <a href="#benchmarks" class="hover:text-sky-400 transition-colors">Benchmarks</a>
         <a href="#api" class="hover:text-sky-400 transition-colors">API Reference</a>
       </nav>
@@ -105,23 +105,25 @@
 
   <!-- Hero Section -->
   <section class="relative pt-16 pb-20 px-4 sm:px-6 lg:px-8 text-center max-w-5xl mx-auto">
-    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/30 mb-6">
+    <div class="inline-flex flex-wrap items-center justify-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/30 mb-6">
       <span>Deterministic Extraction Engine</span>
+      <span class="w-1 h-1 rounded-full bg-sky-400"></span>
+      <span>Universal Protocol IR (OpenAI &bull; Claude &bull; Gemini &bull; MCP)</span>
       <span class="w-1 h-1 rounded-full bg-sky-400"></span>
       <span>Zero Runtime Dependencies</span>
     </div>
 
     <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
       Structured Tool Call Parser for <br/>
-      <span class="gradient-text">Autonomous AI Agents</span>
+      <span class="gradient-text">NI/AI</span>
     </h1>
 
     <p class="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto mb-8 font-normal leading-relaxed">
-      Extract, normalize, and repair heterogeneous tool calls from large language model text streams. Sub-0.05ms deterministic execution across standard OpenAI, Claude XML, DeepSeek DSML, Qwen, and Llama formats.
+      Extract, normalize, and repair heterogeneous tool calls from large language model text streams. Sub-0.05ms deterministic execution across OpenAI, Claude XML, DeepSeek DSML, Qwen 2.5, and Llama formats with cross-provider protocol translation.
     </p>
 
     <!-- Quick Install Bar -->
-    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
       <div class="flex items-center glass-card px-4 py-2.5 rounded-xl border border-slate-700 w-full sm:w-auto shadow-xl">
         <span class="text-slate-400 font-mono text-sm select-none mr-2">$</span>
         <code class="font-mono text-sm text-sky-300 font-semibold mr-4">pip install agent-tool-parser</code>
@@ -135,6 +137,22 @@
       </a>
     </div>
 
+    <!-- 30-Second Quickstart Card -->
+    <div class="max-w-xl mx-auto mb-10 text-left glass-card rounded-xl border border-slate-800 overflow-hidden shadow-2xl">
+      <div class="bg-slate-900/90 px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
+        <span class="flex items-center space-x-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+          <span>quickstart.py</span>
+        </span>
+        <span class="text-emerald-400 font-semibold">&lt; 0.05ms</span>
+      </div>
+      <pre class="p-4 text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed"><code><span class="text-purple-400">from</span> agent_tool_parser <span class="text-purple-400">import</span> parse_tool_calls
+
+raw = <span class="text-emerald-300">'&lt;function=Edit&gt;&lt;parameter=file_path&gt;setup.py&lt;/parameter&gt;&lt;/function&gt;'</span>
+calls = parse_tool_calls(raw)
+<span class="text-slate-500"># -> [ToolCall(name="str_replace", args={"path": "setup.py"})]</span></code></pre>
+    </div>
+
     <!-- Quick Metrics Banner -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto pt-4 border-t border-slate-800/80">
       <div class="p-3">
@@ -146,8 +164,8 @@
         <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Pure Standard Library</div>
       </div>
       <div class="p-3">
-        <div class="text-2xl sm:text-3xl font-bold text-indigo-400 font-mono">Multi-Tool</div>
-        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Parallel Invocation</div>
+        <div class="text-2xl sm:text-3xl font-bold text-indigo-400 font-mono">Multi-Protocol</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">OpenAI / Claude / Gemini / MCP</div>
       </div>
       <div class="p-3">
         <div class="text-2xl sm:text-3xl font-bold text-emerald-400 font-mono">MIT</div>
@@ -161,15 +179,16 @@
     <div class="text-center mb-8">
       <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Interactive Evaluation Playground</h2>
       <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
-        Evaluate how heterogeneous or truncated model completions are normalized to canonical ToolCall structures.
+        Evaluate how heterogeneous or truncated model completions are normalized to canonical ToolCall structures in client-side WebAssembly / JS.
       </p>
     </div>
 
     <!-- Preset Selector Tabs -->
     <div class="flex items-center overflow-x-auto pb-3 gap-2 mb-4 scrollbar-none justify-start sm:justify-center">
       <button onclick="loadPreset('deepseek-dsml')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-500/40 whitespace-nowrap">DeepSeek DSML &amp; Think</button>
-      <button onclick="loadPreset('deepseek-native')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">DeepSeek Native Tokens</button>
+      <button onclick="loadPreset('qwen-claude-code')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Qwen in Claude Code</button>
       <button onclick="loadPreset('claude-xml')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Claude XML + CDATA</button>
+      <button onclick="loadPreset('mcp-bridge')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">MCP JSON-RPC</button>
       <button onclick="loadPreset('qwen-tokens')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Qwen 2.5 Tokens</button>
       <button onclick="loadPreset('llama-ast')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Llama 3.1 AST</button>
       <button onclick="loadPreset('multi-tool')" class="preset-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap">Parallel Multi-Tool</button>
@@ -215,6 +234,91 @@
     </div>
   </section>
 
+  <!-- NI/AI Cheatsheet -->
+  <section id="cheatsheet" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-800/80">
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 mb-3">
+        <span>Instant Reference for NI/AI</span>
+      </div>
+      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">NI/AI Cheatsheet</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
+        Deterministic, zero-dependency operations indexed for prompt context, inference loops, and NI/AI workflows.
+      </p>
+    </div>
+
+    <div class="glass-card rounded-2xl overflow-x-auto max-w-5xl mx-auto shadow-2xl">
+      <table class="w-full text-left text-xs sm:text-sm font-normal">
+        <thead class="bg-slate-900/90 border-b border-slate-800 text-slate-300 uppercase text-[11px] tracking-wider font-semibold">
+          <tr>
+            <th class="py-4 px-6">Task / Goal</th>
+            <th class="py-4 px-6 text-sky-400 font-bold">Function / Class</th>
+            <th class="py-4 px-6 text-slate-400">Input</th>
+            <th class="py-4 px-6 text-emerald-400">Output</th>
+            <th class="py-4 px-6 text-right text-slate-400">Latency</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/60 font-mono text-xs text-slate-300">
+          <tr>
+            <td class="py-3.5 px-6 font-sans font-medium text-white">Extract &amp; auto-repair tools</td>
+            <td class="py-3.5 px-6 text-sky-300 font-semibold">try_parse_tool_calls(text)</td>
+            <td class="py-3.5 px-6 text-slate-400">str (raw LLM text)</td>
+            <td class="py-3.5 px-6 text-emerald-300">list[ToolCall]</td>
+            <td class="py-3.5 px-6 text-right text-emerald-400 font-semibold">&lt; 0.05ms</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-sans font-medium text-white">Strict extraction (raise ToolError)</td>
+            <td class="py-3.5 px-6 text-sky-300 font-semibold">parse_tool_calls(text)</td>
+            <td class="py-3.5 px-6 text-slate-400">str (raw LLM text)</td>
+            <td class="py-3.5 px-6 text-emerald-300">list[ToolCall]</td>
+            <td class="py-3.5 px-6 text-right text-emerald-400 font-semibold">&lt; 0.05ms</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-sans font-medium text-white">Real-time SSE token stream</td>
+            <td class="py-3.5 px-6 text-sky-300 font-semibold">StreamingToolParser()</td>
+            <td class="py-3.5 px-6 text-slate-400">str chunks</td>
+            <td class="py-3.5 px-6 text-emerald-300">StreamToolEvent yields</td>
+            <td class="py-3.5 px-6 text-right text-emerald-400 font-semibold">0ms overhead</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-sans font-medium text-white">Cross-protocol call translation</td>
+            <td class="py-3.5 px-6 text-sky-300 font-semibold">convert_tool_calls(calls, to_format)</td>
+            <td class="py-3.5 px-6 text-slate-400">list[dict] / ToolCall</td>
+            <td class="py-3.5 px-6 text-emerald-300">Target provider dicts</td>
+            <td class="py-3.5 px-6 text-right text-emerald-400 font-semibold">&lt; 0.02ms</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-sans font-medium text-white">Cross-protocol schema conversion</td>
+            <td class="py-3.5 px-6 text-sky-300 font-semibold">convert_tool_definitions(tools, to_format)</td>
+            <td class="py-3.5 px-6 text-slate-400">list[ToolDefinition | dict]</td>
+            <td class="py-3.5 px-6 text-emerald-300">OpenAI / Anthropic / Gemini</td>
+            <td class="py-3.5 px-6 text-right text-emerald-400 font-semibold">&lt; 0.05ms</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-sans font-medium text-white">Gemini schema sanitizer (HTTP 400 fix)</td>
+            <td class="py-3.5 px-6 text-sky-300 font-semibold">sanitize_tool_schema_for_gemini(schema)</td>
+            <td class="py-3.5 px-6 text-slate-400">dict (Pydantic / JSON Schema)</td>
+            <td class="py-3.5 px-6 text-emerald-300">Clean Gemini schema</td>
+            <td class="py-3.5 px-6 text-right text-emerald-400 font-semibold">&lt; 0.01ms</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-sans font-medium text-white">MCP tool result wrapper</td>
+            <td class="py-3.5 px-6 text-sky-300 font-semibold">to_mcp_call_result(output, is_error)</td>
+            <td class="py-3.5 px-6 text-slate-400">Any (str, dict, list, error)</td>
+            <td class="py-3.5 px-6 text-emerald-300">MCP CallToolResult dict</td>
+            <td class="py-3.5 px-6 text-right text-emerald-400 font-semibold">&lt; 0.01ms</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-sans font-medium text-white">Safe JSON repair (unescaped/cut)</td>
+            <td class="py-3.5 px-6 text-sky-300 font-semibold">safe_json_loads(string)</td>
+            <td class="py-3.5 px-6 text-slate-400">str (damaged JSON)</td>
+            <td class="py-3.5 px-6 text-emerald-300">dict | list | Any</td>
+            <td class="py-3.5 px-6 text-right text-emerald-400 font-semibold">&lt; 0.01ms</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- Architectural Challenges Section -->
   <section id="why" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-800/80">
     <div class="text-center mb-12">
@@ -257,22 +361,22 @@
     </div>
   </section>
 
-  <!-- Architectural Integration Patterns -->
+  <!-- Practical Recipes Section -->
   <section id="recipes" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-800/80">
     <div class="text-center mb-12">
-      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Architectural Integration Patterns</h2>
+      <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Practical Recipes</h2>
       <p class="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
-        Reference implementations for integrating <code class="text-sky-400 font-mono">agent-tool-parser</code> into agent loops, gateway proxies, and parallel execution pipelines.
+        Drop-in implementations for agent execution loops, protocol bridging, and resilient multi-model routing.
       </p>
     </div>
 
     <div class="space-y-8 max-w-4xl mx-auto">
-      <!-- Recipe 1: Autonomous Agent Loop -->
+      <!-- Recipe 1: Extract & Auto-Repair -->
       <div class="glass-card rounded-2xl overflow-hidden">
         <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
           <div>
-            <span class="text-xs uppercase font-bold text-sky-400 tracking-wider">Pattern 1</span>
-            <h3 class="text-base font-bold text-white">Autonomous Agent Loop (ReAct / Plan-and-Execute)</h3>
+            <span class="text-xs uppercase font-bold text-sky-400 tracking-wider">Recipe 1</span>
+            <h3 class="text-base font-bold text-white">Extract &amp; Auto-Repair (DeepSeek, Claude, Qwen, Llama)</h3>
           </div>
           <button onclick="copyCode(this)" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 transition-colors">Copy</button>
         </div>
@@ -287,7 +391,7 @@ def run_agent_turn(messages: list[dict], client, model_name: str):
     )
     raw_content = response.choices[0].message.content or ""
 
-    # Resilient extraction across DeepSeek, Claude, Qwen, Llama & non-standard JSON
+    # Resilient extraction across DeepSeek DSML, Claude XML, Qwen tokens, Llama AST & JSON
     tool_calls = try_parse_tool_calls(
         raw_content,
         allowed_tools={"read_file", "write_file", "bash", "search"},
@@ -297,69 +401,121 @@ def run_agent_turn(messages: list[dict], client, model_name: str):
     if not tool_calls:
         return {"action": "reply", "content": raw_content}
 
-    # Execute all tools (in parallel or sequentially)
-    results = []
-    for call in tool_calls:
-        output = execute_tool(call.name, call.args)
-        results.append({"tool": call.name, "output": output})
-
+    # Execute all parsed tools (parallel or sequential)
+    results = [execute_tool(c.name, c.args) for c in tool_calls]
     return {"action": "continue", "results": results}</code></pre>
         </div>
       </div>
 
-      <!-- Recipe 2: Drop-in OpenAI & LiteLLM Fallback Wrapper -->
+      <!-- Recipe 2: Qwen in Claude Code -->
       <div class="glass-card rounded-2xl overflow-hidden">
         <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
           <div>
-            <span class="text-xs uppercase font-bold text-indigo-400 tracking-wider">Pattern 2</span>
-            <h3 class="text-base font-bold text-white">API Gateway &amp; Router Normalization Middleware</h3>
+            <span class="text-xs uppercase font-bold text-indigo-400 tracking-wider">Recipe 2</span>
+            <h3 class="text-base font-bold text-white">Qwen 2.5 in Claude Code Workflow</h3>
           </div>
           <button onclick="copyCode(this)" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 transition-colors">Copy</button>
         </div>
         <div class="p-6 bg-slate-950/60 overflow-x-auto">
-          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>from agent_tool_parser import parse_tool_calls, safe_json_loads, ToolError
+          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>from agent_tool_parser import (
+    convert_tool_definitions,
+    parse_tool_calls,
+    convert_tool_calls,
+)
 
-def normalize_response(response_message):
-    """Normalizes response structures when inference endpoints emit markup in message content."""
-    # 1. Return native tool_calls if already structured by provider SDK
-    if getattr(response_message, "tool_calls", None):
-        return [
-            {"name": tc.function.name, "args": safe_json_loads(tc.function.arguments)}
-            for tc in response_message.tool_calls
-        ]
+# 1. Claude Code sends Anthropic-formatted tools (e.g. Edit, Bash)
+anthropic_tools = [
+    {"name": "Edit", "description": "Edit file", "input_schema": {"type": "object", "properties": {"file_path": {"type": "string"}}}}
+]
 
-    # 2. Extract structured invocations from text content stream
-    content = getattr(response_message, "content", "") or ""
-    try:
-        calls = parse_tool_calls(content)
-        return [{"name": c.name, "args": c.args} for c in calls]
-    except ToolError:
-        return []</code></pre>
+# 2. Convert to Qwen (OpenAI-compatible) function declarations
+qwen_tools = convert_tool_definitions(anthropic_tools, to_format="openai")
+
+# 3. Qwen emits raw XML in completion: <function=Edit><parameter=file_path>src/main.py</parameter></function>
+qwen_output = '<function=Edit><parameter=file_path>src/main.py</parameter></function>'
+
+# 4. Extract and translate back to Anthropic tool_use for Claude Code harness
+calls = parse_tool_calls(qwen_output)
+claude_tool_uses = convert_tool_calls(calls, to_format="anthropic")
+# -> [{"type": "tool_use", "id": "call_...", "name": "str_replace", "input": {"path": "src/main.py"}}]</code></pre>
         </div>
       </div>
 
-      <!-- Recipe 3: Concurrent Multi-Tool Execution -->
+      <!-- Recipe 3: Universal Protocol IR & MCP Bridge -->
       <div class="glass-card rounded-2xl overflow-hidden">
         <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
           <div>
-            <span class="text-xs uppercase font-bold text-emerald-400 tracking-wider">Pattern 3</span>
-            <h3 class="text-base font-bold text-white">Concurrent Multi-Tool Dispatch (AsyncIO)</h3>
+            <span class="text-xs uppercase font-bold text-emerald-400 tracking-wider">Recipe 3</span>
+            <h3 class="text-base font-bold text-white">Universal Protocol IR &amp; MCP Bridge</h3>
           </div>
           <button onclick="copyCode(this)" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 transition-colors">Copy</button>
         </div>
         <div class="p-6 bg-slate-950/60 overflow-x-auto">
-          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>import asyncio
-from agent_tool_parser import parse_tool_calls
+          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>from agent_tool_parser import (
+    convert_tool_calls,
+    to_mcp_call_result,
+    normalize_to_ir,
+)
 
-async def handle_llm_turn(model_output: str):
-    # Parse multiple parallel tool calls from one generation step
-    calls = parse_tool_calls(model_output)
+# Bridge incoming Anthropic tool_use to Model Context Protocol (MCP) call
+incoming_call = {"type": "tool_use", "id": "call_1", "name": "query_db", "input": {"sql": "SELECT 1"}}
+ir_call = normalize_to_ir(incoming_call)
 
-    # Execute all tools concurrently in parallel
-    tasks = [async_run_tool(call.name, call.args) for call in calls]
-    tool_results = await asyncio.gather(*tasks, return_exceptions=True)
+# Dispatch to MCP client and wrap tool output into spec-compliant CallToolResult
+mcp_result = to_mcp_call_result({"status": "ok", "rows": [1]})
+# -> {"content": [{"type": "text", "text": "{"status": "ok", "rows": [1]}"}], "isError": False}</code></pre>
+        </div>
+      </div>
 
-    return list(zip([c.name for c in calls], tool_results))</code></pre>
+      <!-- Recipe 4: Gemini Schema Sanitizer -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-xs uppercase font-bold text-amber-400 tracking-wider">Recipe 4</span>
+            <h3 class="text-base font-bold text-white">Gemini Schema Sanitizer (Prevent HTTP 400)</h3>
+          </div>
+          <button onclick="copyCode(this)" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 transition-colors">Copy</button>
+        </div>
+        <div class="p-6 bg-slate-950/60 overflow-x-auto">
+          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>from agent_tool_parser import sanitize_tool_schema_for_gemini
+
+# Pydantic or complex JSON Schemas often contain $defs, anyOf, or titles that crash Gemini
+complex_schema = {
+    "$defs": {"UserType": {"type": "string", "enum": ["admin", "guest"]}},
+    "type": "object",
+    "properties": {
+        "user": {"$ref": "#/$defs/UserType"},
+        "tags": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+    }
+}
+
+# Resolve references, flatten unions, and strip unsupported keys in < 0.01ms
+clean_schema = sanitize_tool_schema_for_gemini(complex_schema)
+# -> Safe for Google GenAI / Vertex AI tool declarations without HTTP 400 errors</code></pre>
+        </div>
+      </div>
+
+      <!-- Recipe 5: SSE Streaming -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-xs uppercase font-bold text-purple-400 tracking-wider">Recipe 5</span>
+            <h3 class="text-base font-bold text-white">SSE Token Streaming with Early Tool Interception</h3>
+          </div>
+          <button onclick="copyCode(this)" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 transition-colors">Copy</button>
+        </div>
+        <div class="p-6 bg-slate-950/60 overflow-x-auto">
+          <pre class="text-xs font-mono text-slate-300 leading-relaxed"><code>from agent_tool_parser import StreamingToolParser
+
+def handle_stream_chunks(chunk_generator):
+    parser = StreamingToolParser()
+    for chunk in chunk_generator:
+        # Feed token chunk to streaming state machine
+        for event in parser.feed(chunk):
+            if event.event_type == "tool_call_start":
+                print(f"Tool invocation detected early: {event.name}")
+            elif event.event_type == "tool_call_end":
+                print(f"Completed tool call: {event.name} -> {event.args}")</code></pre>
         </div>
       </div>
     </div>
@@ -374,7 +530,7 @@ async def handle_llm_turn(model_output: str):
       </p>
     </div>
 
-    <div class="glass-card rounded-2xl overflow-x-auto max-w-5xl mx-auto">
+    <div class="glass-card rounded-2xl overflow-x-auto max-w-5xl mx-auto shadow-2xl">
       <table class="w-full text-left text-xs sm:text-sm font-normal">
         <thead class="bg-slate-900/90 border-b border-slate-800 text-slate-300 uppercase text-[11px] tracking-wider font-semibold">
           <tr>
@@ -422,10 +578,17 @@ async def handle_llm_turn(model_output: str):
             <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
           </tr>
           <tr>
-            <td class="py-3.5 px-6 font-medium text-white">Llama 3.1 Python AST Expressions</td>
-            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Safe AST (No eval)</td>
+            <td class="py-3.5 px-6 font-medium text-white">Qwen 2.5 in Claude Code</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Full Support</td>
             <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
             <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+          </tr>
+          <tr>
+            <td class="py-3.5 px-6 font-medium text-white">Universal Protocol IR (Cross-vendor)</td>
+            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; OpenAI / Claude / Gemini / MCP</td>
+            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
+            <td class="py-3.5 px-6 text-amber-400">Complex abstractions</td>
             <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
           </tr>
           <tr>
@@ -435,26 +598,19 @@ async def handle_llm_turn(model_output: str):
             <td class="py-3.5 px-6 text-rose-400">&cross; Crashes</td>
             <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
           </tr>
-          <tr>
-            <td class="py-3.5 px-6 font-medium text-white">Multi-Tool Calling</td>
-            <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Any syntax</td>
-            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
-            <td class="py-3.5 px-6 text-amber-400">JSON only</td>
-            <td class="py-3.5 px-6 text-rose-400">&cross; No</td>
-          </tr>
         </tbody>
       </table>
     </div>
 
     <!-- Architectural Boundaries Table -->
     <div class="mt-12 text-center mb-6">
-      <h3 class="text-lg sm:text-xl font-bold text-white tracking-tight">Architectural Boundaries: Post-Parsing vs. Server Alternatives</h3>
+      <h3 class="text-lg sm:text-xl font-bold text-white tracking-tight">Architectural Boundaries: Client-Side Post-Parsing vs. Server Alternatives</h3>
       <p class="text-slate-400 text-xs mt-1 max-w-2xl mx-auto">
         System trade-offs across execution boundaries, sampler integration, and dependency stacks.
       </p>
     </div>
 
-    <div class="glass-card rounded-2xl overflow-x-auto max-w-5xl mx-auto">
+    <div class="glass-card rounded-2xl overflow-x-auto max-w-5xl mx-auto shadow-2xl">
       <table class="w-full text-left text-xs sm:text-sm font-normal">
         <thead class="bg-slate-900/90 border-b border-slate-800 text-slate-300 uppercase text-[11px] tracking-wider font-semibold">
           <tr>
@@ -488,12 +644,6 @@ async def handle_llm_turn(model_output: str):
             <td class="py-3.5 px-6 text-emerald-400 font-bold">&check; Any provider returning text</td>
             <td class="py-3.5 px-6 text-rose-400">&cross; Incompatible with third-party APIs</td>
             <td class="py-3.5 px-6 text-amber-400">&check; Via extra API round-trip</td>
-          </tr>
-          <tr>
-            <td class="py-3.5 px-6 font-medium text-white">Grammar Enforcement</td>
-            <td class="py-3.5 px-6 text-slate-300">Deterministic text parsing &amp; repair</td>
-            <td class="py-3.5 px-6 text-slate-300">FSM logit masking during token sampling</td>
-            <td class="py-3.5 px-6 text-slate-300">Probabilistic prompting pass</td>
           </tr>
           <tr>
             <td class="py-3.5 px-6 font-medium text-white">Format Scope</td>
@@ -579,7 +729,7 @@ async def handle_llm_turn(model_output: str):
             <span class="text-xl">💻</span>
             <h3 class="text-base font-bold text-white">Coding &amp; Terminal Agents</h3>
           </div>
-          <p class="text-xs text-sky-400 font-mono mb-2">Aider &bull; Cline &bull; OpenHands (OpenDevin)</p>
+          <p class="text-xs text-sky-400 font-mono mb-2">Claude Code &bull; Aider &bull; Cline &bull; OpenHands</p>
           <p class="text-xs text-slate-400 leading-relaxed">
             Multi-line Python scripts and Bash commands constantly break standard JSON escaping. Full support for XML tags, CDATA unwrapping, and code blocks ensures lossless code execution.
           </p>
@@ -613,46 +763,43 @@ async def handle_llm_turn(model_output: str):
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
       <div class="glass-card p-6 rounded-2xl">
-        <div class="font-mono text-sm font-bold text-sky-400 mb-2">parse_tool_calls(text, ...) -> list[ToolCall]</div>
+        <div class="font-mono text-sm font-bold text-sky-400 mb-2">try_parse_tool_calls(text, ...) -&gt; list[ToolCall]</div>
         <p class="text-xs text-slate-400 leading-relaxed mb-4">
-          Parses an LLM response string and returns all structured <code class="text-slate-200">ToolCall</code> objects found. Raises <code class="text-rose-400">ToolError</code> if no valid tool calls could be extracted.
+          Safe non-raising parser. Extracts tools from XML, DSML, markdown JSON, and tokens. Returns empty list <code class="text-slate-200">[]</code> if text is purely conversational.
         </p>
-        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>calls = parse_tool_calls(raw_text)
+        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>calls = try_parse_tool_calls(raw_text)
 for call in calls:
     print(call.name, call.args)</code></pre>
       </div>
 
       <div class="glass-card p-6 rounded-2xl">
-        <div class="font-mono text-sm font-bold text-emerald-400 mb-2">try_parse_tool_calls(text, ...) -> list[ToolCall]</div>
+        <div class="font-mono text-sm font-bold text-emerald-400 mb-2">convert_tool_calls(calls, to_format="anthropic") -&gt; list[dict]</div>
         <p class="text-xs text-slate-400 leading-relaxed mb-4">
-          Safe non-raising variant. Returns an empty list <code class="text-slate-200">[]</code> if the model response only contained conversational text without any tool calls.
+          Translates tool invocations between OpenAI, Anthropic, Gemini, MCP, and internal IR formats with zero data loss.
         </p>
-        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>calls = try_parse_tool_calls(raw_text)
-if not calls:
-    return "No tool needed, answer directly"</code></pre>
+        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>claude_calls = convert_tool_calls(
+    openai_calls, to_format="anthropic"
+)</code></pre>
       </div>
 
       <div class="glass-card p-6 rounded-2xl">
-        <div class="font-mono text-sm font-bold text-indigo-400 mb-2">ToolParser(allowed_tools, tool_aliases, ...)</div>
+        <div class="font-mono text-sm font-bold text-indigo-400 mb-2">sanitize_tool_schema_for_gemini(schema) -&gt; dict</div>
         <p class="text-xs text-slate-400 leading-relaxed mb-4">
-          Reusable, configurable parser instance. Enforces tool whitelists, normalizes custom aliases (e.g. <code class="text-slate-200">view -> read_file</code>), and handles argument mapping.
+          Normalizes JSON schemas for Google Gemini / Vertex AI. Inlines <code class="text-slate-200">$defs</code>, resolves <code class="text-slate-200">$ref</code>, and strips unsupported attributes.
         </p>
-        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>parser = ToolParser(
-    allowed_tools=["read_file", "bash"],
-    tool_aliases={"terminal": "bash"}
-)
-call = parser.parse(raw_text)</code></pre>
+        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>gemini_schema = sanitize_tool_schema_for_gemini(
+    pydantic_schema
+)</code></pre>
       </div>
 
       <div class="glass-card p-6 rounded-2xl">
-        <div class="font-mono text-sm font-bold text-purple-400 mb-2">safe_json_loads(s, default=None) -> Any</div>
+        <div class="font-mono text-sm font-bold text-purple-400 mb-2">to_mcp_call_result(output, is_error=False) -&gt; dict</div>
         <p class="text-xs text-slate-400 leading-relaxed mb-4">
-          Stand-alone resilient JSON loader. Auto-repairs single quotes, trailing commas, and converts Python literals (<code class="text-slate-200">True/False/None</code>) without throwing exceptions.
+          Wraps tool execution results or exceptions into standard Model Context Protocol (MCP) CallToolResult blocks.
         </p>
-        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>from agent_tool_parser import safe_json_loads
-
-data = safe_json_loads("{'path': 'a.py', 'overwrite': True,}")
-# {'path': 'a.py', 'overwrite': True}</code></pre>
+        <pre class="bg-slate-950/80 p-3 rounded-lg text-xs font-mono text-slate-300"><code>mcp_res = to_mcp_call_result(
+    {"result": 42}, is_error=False
+)</code></pre>
       </div>
     </div>
   </section>
@@ -670,6 +817,7 @@ data = safe_json_loads("{'path': 'a.py', 'overwrite': True,}")
       <div class="flex items-center space-x-6 text-slate-400">
         <a href="https://github.com/inboost-dev/agent-tool-parser" class="hover:text-white transition-colors">GitHub Repository</a>
         <a href="#playground" class="hover:text-white transition-colors">Playground</a>
+        <a href="#cheatsheet" class="hover:text-white transition-colors">Cheatsheet</a>
         <a href="#recipes" class="hover:text-white transition-colors">Recipes</a>
       </div>
     </div>
@@ -689,8 +837,12 @@ I need to inspect the current test suite before executing the benchmark.
 </｜DSML｜invoke>
 </｜DSML｜tool_calls>`,
 
-      'deepseek-native': `<think>Let me search for files</think>
-<｜tool calls begin｜><｜tool call begin｜>function=search<｜tool sep｜>{"pattern": "ignore-paths", "path": "."}<｜tool call end｜><｜tool calls end｜>`,
+      'qwen-claude-code': `I will update setup.py to include the new package version:
+<function=Edit>
+<parameter=file_path>setup.py</parameter>
+<parameter=old_str>version="0.1.0"</parameter>
+<parameter=new_str>version="0.2.0"</parameter>
+</function>`,
 
       'claude-xml': `<tool_use>
 <name>write_file</name>
@@ -703,6 +855,21 @@ def get_config():
 ]]></content>
 </arguments>
 </tool_use>`,
+
+      'mcp-bridge': `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "fetch",
+    "arguments": {
+      "url": "https://api.github.com/repos/inboost-dev/agent-tool-parser",
+      "headers": {
+        "User-Agent": "agent-runtime"
+      }
+    }
+  },
+  "id": 1
+}`,
 
       'qwen-tokens': `<|action_start|><|action_name|>bash<|action_args|>{"command": "pytest -v tests/test_core.py"}<|action_end|>`,
 
@@ -718,7 +885,7 @@ def get_config():
 <arguments>{"path": "tests/test_parser.py"}</arguments>
 </tool_use>`,
 
-      'broken-json': ````json
+      'broken-json': `\`\`\`json
 {"tool": "str_replace", "file": "src/main.py", "old": "test", "new": "prod", 'active': True,`
     };
 
@@ -727,9 +894,9 @@ def get_config():
         btn.classList.remove('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
         btn.classList.add('bg-slate-800/80', 'text-slate-400', 'border-slate-700');
       });
-      if (event && event.target) {
-        event.target.classList.remove('bg-slate-800/80', 'text-slate-400', 'border-slate-700');
-        event.target.classList.add('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
+      if (window.event && window.event.target) {
+        window.event.target.classList.remove('bg-slate-800/80', 'text-slate-400', 'border-slate-700');
+        window.event.target.classList.add('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
       }
 
       if (PRESETS[presetId]) {
@@ -743,15 +910,34 @@ def get_config():
       let t = text.replace(/<[｜|]?(?:think|thought|reasoning)[｜|]?>[\s\S]*?(?:<\/[｜|]?(?:think|thought|reasoning)[｜|]?>|$)/gi, '').trim();
       const calls = [];
 
-      // 1. DeepSeek Native Tokens
-      const dsNative = /<[｜|]*tool call begin[｜|]*>(?:function=)?([a-zA-Z0-9_-]+)<[｜|]*tool sep[｜|]*>([\s\S]*?)<[｜|]*tool call end[｜|]*>/gi;
-      let m;
-      while ((m = dsNative.exec(t)) !== null) {
-        calls.push({ name: m[1].trim(), args: safeJson(m[2]) });
+      // 1. Qwen / Claude Code <function=Name><parameter=param>value</parameter></function>
+      const qwenFuncRegex = /<(?:function|invoke)=([a-zA-Z0-9_-]+)>([\s\S]*?)(?:<\/(?:function|invoke)>|$)/gi;
+      let qm;
+      while ((qm = qwenFuncRegex.exec(t)) !== null) {
+        const fnName = qm[1];
+        const body = qm[2];
+        const args = {};
+        const pRegex = /<parameter=([a-zA-Z0-9_-]+)>([\s\S]*?)(?:<\/parameter>|$)/gi;
+        let pm;
+        while ((pm = pRegex.exec(body)) !== null) {
+          args[pm[1]] = cleanParam(pm[2]);
+        }
+        if (Object.keys(args).length === 0 && body.trim().startsWith('{')) {
+          Object.assign(args, safeJson(body));
+        }
+        calls.push({ name: normalizeName(fnName), args: normalizeArgs(args) });
       }
       if (calls.length > 0) return calls;
 
-      // 2. Anthropic / XML Invoke
+      // 2. DeepSeek Native Tokens
+      const dsNative = /<[｜|]*tool call begin[｜|]*>(?:function=)?([a-zA-Z0-9_-]+)<[｜|]*tool sep[｜|]*>([\s\S]*?)<[｜|]*tool call end[｜|]*>/gi;
+      let m;
+      while ((m = dsNative.exec(t)) !== null) {
+        calls.push({ name: normalizeName(m[1].trim()), args: normalizeArgs(safeJson(m[2])) });
+      }
+      if (calls.length > 0) return calls;
+
+      // 3. Anthropic / XML Invoke
       const xmlInvoke = /<(?:(?:｜|\|)?DSML(?:｜|\|)?)?(?:invoke|tool|call|tool_use|ant_tool_use)(?::([a-zA-Z0-9_-]+))?([^>]*)>([\s\S]*?)(?:<\/(?:(?:｜|\|)?DSML(?:｜|\|)?)?(?:invoke|tool|call|tool_use|ant_tool_use)(?::[a-zA-Z0-9_-]+)?>|$)/gi;
       while ((m = xmlInvoke.exec(t)) !== null) {
         let name = m[1] || '';
@@ -781,7 +967,7 @@ def get_config():
           if (inner.startsWith('{')) {
             Object.assign(args, safeJson(inner));
           } else {
-            const childTags = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/gi;
+            const childTags = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/>/gi;
             let ct;
             while ((ct = childTags.exec(inner)) !== null) {
               args[ct[1]] = cleanParam(ct[2]);
@@ -792,14 +978,14 @@ def get_config():
       }
       if (calls.length > 0) return calls;
 
-      // 3. Qwen-Agent tokens
+      // 4. Qwen-Agent tokens
       const qwenRegex = /<\|action_start\|><\|action_name\|>([a-zA-Z0-9_-]+)<\|action_args\|>([\s\S]*?)(?:<\|action_end\|>|$)/gi;
       while ((m = qwenRegex.exec(t)) !== null) {
         calls.push({ name: normalizeName(m[1]), args: normalizeArgs(safeJson(m[2])) });
       }
       if (calls.length > 0) return calls;
 
-      // 4. Llama 3.1 Python Tag
+      // 5. Llama 3.1 Python Tag
       const llamaRegex = /<[｜|]*python_tag[｜|]*>([a-zA-Z0-9_.-]+)\(([\s\S]*?)\)/gi;
       while ((m = llamaRegex.exec(t)) !== null) {
         const fnName = m[1].replace(/^(?:bash|tool|tools)\./, '');
@@ -809,12 +995,16 @@ def get_config():
       }
       if (calls.length > 0) return calls;
 
-      // 5. Raw / Markdown JSON fallback with bracket-stack repair
+      // 6. MCP JSON-RPC or standard JSON
       const jsonMatch = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(t) || [null, t];
       if (jsonMatch && jsonMatch[1]) {
         const parsed = safeJson(jsonMatch[1]);
         if (parsed && typeof parsed === 'object') {
-          if (Array.isArray(parsed)) {
+          // MCP JSON-RPC: method == "tools/call"
+          if (parsed.method === "tools/call" && parsed.params) {
+            const p = parsed.params;
+            calls.push({ name: normalizeName(p.name || 'unknown'), args: normalizeArgs(p.arguments || {}) });
+          } else if (Array.isArray(parsed)) {
             parsed.forEach(item => {
               if (item.name || item.tool) calls.push({ name: normalizeName(item.name || item.tool), args: normalizeArgs(item.arguments || item.parameters || item.args || item) });
             });
@@ -845,10 +1035,11 @@ def get_config():
     }
 
     function normalizeArgs(args) {
+      if (!args || typeof args !== 'object') return {};
       const norm = {};
       for (const [k, v] of Object.entries(args)) {
         let cleanK = k.toLowerCase();
-        if (cleanK === 'file') cleanK = 'path';
+        if (cleanK === 'file' || cleanK === 'file_path') cleanK = 'path';
         if (cleanK === 'cmd') cleanK = 'command';
         norm[cleanK] = v;
       }

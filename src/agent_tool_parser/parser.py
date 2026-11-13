@@ -61,16 +61,16 @@ _INVOKE_TAGS = (
 
 _INVOKE_RE = re.compile(
     r"""<[｜|]*(?:dsml[｜|]*)?(?P<tag>""" + _INVOKE_TAGS + r""")"""
-    r"""(?:(?::|=)\s*['"]?(?P<colon_tool>[\w.:-]+)['"]?)?\b(?P<attrs>[^>]*)>(?P<body>.*?)"""
-    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=tag)(?:(?::|=)\s*[\w.:-]+)?\s*>|"""
+    r"""(?:(?::|=)\s*['"]?(?P<colon_tool>[^<>\s'"]+)['"]?)?\b(?P<attrs>[^>]*)>(?P<body>.*?)"""
+    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=tag)(?:(?::|=)\s*[^<>\s'"]+)?\s*>|"""
     r"""(?=<[｜|]*(?:dsml[｜|]*)?(?:""" + _INVOKE_TAGS + r""")\b)|"""
     r"""(?=</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>)|$)""",
     re.DOTALL | re.IGNORECASE,
 )
 
 _PARAM_RE = re.compile(
-    r"""<[｜|]*(?:dsml[｜|]*)?(?P<ptag>parameter|param|arg|argument|параметр|аргумент)(?:=\s*['"]?(?P<pname_eq>[\w.:-]+)['"]?|\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w.:-]+)['"]?)[^>]*>(?P<pval>.*?)"""
-    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=ptag)(?:(?::|=)\s*[\w.:-]+)?\s*>|"""
+    r"""<[｜|]*(?:dsml[｜|]*)?(?P<ptag>parameter|param|arg|argument|параметр|аргумент)(?:=\s*['"]?(?P<pname_eq>[^<>\s'"]+)['"]?|\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[^<>\s'"]+)['"]?)[^>]*>(?P<pval>.*?)"""
+    r"""(?:</[｜|]*(?:dsml[｜|]*)?(?P=ptag)(?:(?::|=)\s*[^<>\s'"]+)?\s*>|"""
     r"""(?=<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)\b)|"""
     r"""(?=</?[｜|]*(?:dsml[｜|]*)?(?:"""
     + _INVOKE_TAGS
@@ -79,19 +79,19 @@ _PARAM_RE = re.compile(
 )
 
 _PARAM_START_RE = re.compile(
-    r"""<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:=\s*['"]?(?P<pname_eq>[\w.:-]+)['"]?|\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[\w.:-]+)['"]?)[^>]*>""",
+    r"""<[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:=\s*['"]?(?P<pname_eq>[^<>\s'"]+)['"]?|\b[^>]*?\bname\s*=\s*['"]?(?P<pname>[^<>\s'"]+)['"]?)[^>]*>""",
     re.IGNORECASE,
 )
 
 _PARAM_END_RE = re.compile(
-    r"""</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:(?::|=)\s*[\w.:-]+)?\s*>""",
+    r"""</[｜|]*(?:dsml[｜|]*)?(?:parameter|param|arg|argument|параметр|аргумент)(?:(?::|=)\s*[^<>\s'"]+)?\s*>""",
     re.IGNORECASE,
 )
 
 _INVOKE_END_RE = re.compile(
     r"""</[｜|]*(?:dsml[｜|]*)?(?:"""
     + _INVOKE_TAGS
-    + r""")(?:(?::|=)\s*[\w.:-]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>""",
+    + r""")(?:(?::|=)\s*[^<>\s'"]+)?\s*>|</[｜|]*(?:dsml[｜|]*)?(?:tool_call|tool_calls|function_calls|calls|tools)\s*>""",
     re.IGNORECASE,
 )
 
@@ -197,17 +197,17 @@ _DIRECT_TAG_TNAME_RE = re.compile(
     r"<(?:tool_name|function_name|tool)>([\w-]+)</(?:tool_name|function_name|tool)>",
     re.IGNORECASE,
 )
-_TAG_PAIRS_RE = re.compile(r"<([\w-]+)>(.*?)</\1>", re.DOTALL)
+_TAG_PAIRS_RE = re.compile(r"<([^\s>/|｜]+)>(.*?)</\1>", re.DOTALL)
 _ATTR_TOOL_NAME_RE = re.compile(
-    r"""\b(?:name|function|tool|action)\s*=\s*['"]?([\w-]+)['"]?""",
+    r"""\b(?:name|function|tool|action)\s*=\s*['"]?([^<>\s'"]+)['"]?""",
     re.IGNORECASE,
 )
 _CHILD_TOOL_NAME_RE = re.compile(
-    r"<(?:name|tool_name|function_name|tool|function)>\s*([\w-]+)(?:</(?:name|tool_name|function_name|tool|function)>|\s|$)",
+    r"<(?:name|tool_name|function_name|tool|function)>\s*([^<>\s]+)(?:</(?:name|tool_name|function_name|tool|function)>|\s|$)",
     re.IGNORECASE,
 )
 _CHILD_TOOL_FN_EQ_RE = re.compile(
-    r"""<[｜|]*(?:dsml[｜|]*)?(?:function|tool|invoke|action|func)\s*=\s*['"]?([\w.:-]+)""",
+    r"""<[｜|]*(?:dsml[｜|]*)?(?:function|tool|invoke|action|func)\s*=\s*['"]?([^<>\s'"]+)""",
     re.IGNORECASE,
 )
 _ARGUMENTS_BLOCK_RE = re.compile(
@@ -215,7 +215,7 @@ _ARGUMENTS_BLOCK_RE = re.compile(
     re.DOTALL | re.IGNORECASE,
 )
 _WRAP_TAG_MATCHES_RE = re.compile(
-    r"<([\w-]+)>(.*?)(?:</\1>|(?=<[\w-]+>)|$)",
+    r"<([^\s>/|｜]+)>(.*?)(?:</\1>|(?=<[^\s>/|｜]+>)|$)",
     re.DOTALL,
 )
 _PYTHON_CODEBLOCK_RE = re.compile(r"```(?:python|py)?\s*(.*?)\s*```", re.DOTALL)

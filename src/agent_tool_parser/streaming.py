@@ -10,7 +10,7 @@ from agent_tool_parser.models import ToolCall
 from agent_tool_parser.parser import ToolParser
 
 _ATTR_NAME_RE = re.compile(
-    r"\b(?:name|tool|tool_name|function)\s*=\s*['\"]?([a-zA-Z0-9_.:-]+)['\"]?",
+    r"\b(?:name|tool|tool_name|function)\s*=\s*['\"]?([\w.:-]+)['\"]?",
     re.IGNORECASE,
 )
 
