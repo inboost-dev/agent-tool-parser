@@ -35,3 +35,11 @@ By contributing code, patches, or documentation to this project (under the [Deve
 
 - Each contributor represents and warrants that their contribution is original work (or under an OSI-approved permissive license) and does not infringe third-party patents, copyrights, trade secrets, or proprietary rights.
 - Any contributor (and any organization on whose behalf a contribution is made) assumes sole and exclusive legal and financial liability for their submission and agrees to defend, indemnify, and hold harmless the project maintainers, organization, InBoost Team, and all downstream users against any third-party claims or damages resulting from their contribution.
+
+---
+
+## 4. Third-Party Trademarks & Interoperability
+
+All product names, logos, brands, trademarks, and registered trademarks mentioned in this repository, documentation, and source code (including, but not limited to, **OpenAI**, **ChatGPT**, **Anthropic**, **Claude**, **Google**, **Gemini**, **Meta**, **Llama**, **DeepSeek**, **Qwen**, **Mistral**, and the **Model Context Protocol**) are property of their respective owners.
+
+All company, product, and service names used herein are strictly for **identification, interoperability, and technical compatibility purposes** (nominative fair use). Use of these names, trademarks, and brands does not imply endorsement, affiliation, sponsorship, or certification by their respective trademark owners.
