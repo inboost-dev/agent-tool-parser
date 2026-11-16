@@ -408,6 +408,13 @@ See our [**Contributing Guide (CONTRIBUTING.md)**](CONTRIBUTING.md) for full ins
 
 ---
 
+## Acknowledgments
+
+Special thanks to community contributors:
+- [@Rexllnia](https://github.com/Rexllnia) (SakikoTogawa) — for reporting and contributing the UTF-8 multi-byte character boundary fix ([#2](https://github.com/inboost-dev/agent-tool-parser/issues/2), [#3](https://github.com/inboost-dev/agent-tool-parser/pull/3)), which inspired and paved the way for the full CJK and multilingual Unicode parsing engine in v0.2.0.
+
+---
+
 ## Security & Execution Disclaimer
 
 `agent-tool-parser` is strictly a **passive lexical and structural parser**. It does not validate, authenticate, sandbox, or execute tool calls, shell commands, or arbitrary parameters emitted by language models. Parsed tool calls must **never** be executed directly without strict downstream input validation, authorization checks, and process isolation.
